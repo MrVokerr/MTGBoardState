@@ -714,7 +714,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         menu.appendChild(btn);
                     });
 
-                    controlsDiv.appendChild(menu);
+                    document.body.appendChild(menu);
+
+                    const rect = moveBtn.getBoundingClientRect();
+                    const menuWidth = menu.offsetWidth;
+
+                    menu.style.position = 'absolute';
+                    menu.style.top = `${rect.bottom + window.scrollY}px`;
+                    menu.style.left = `${rect.right + window.scrollX - menuWidth}px`;
+                    menu.style.right = 'auto'; // Override CSS
+                    menu.style.zIndex = '10000';
                     
                     // Close menu when clicking elsewhere
                     const closeMenu = () => {
