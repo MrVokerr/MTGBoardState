@@ -52,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Output Elements
     const addPromptCheckbox = document.getElementById('addPromptCheckbox');
     const includeDecklistCheckbox = document.getElementById('includeDecklistCheckbox');
-    const advSettingsCheckbox = document.getElementById('advSettingsCheckbox');
 
     // Tooltip Element
     const tooltip = document.getElementById('card-tooltip');
@@ -72,13 +71,6 @@ document.addEventListener('DOMContentLoaded', () => {
     includeDecklistCheckbox.addEventListener('change', updateOutput);
     currentLifeInput.addEventListener('input', updateOutput);
     opponentInput.addEventListener('input', updateOutput);
-
-    // Re-render zones when Advanced Settings toggled
-    advSettingsCheckbox.addEventListener('change', () => {
-        for (const zoneId in state) {
-            renderZone(zoneId);
-        }
-    });
 
     addCommanderBtn.addEventListener('click', () => {
         addCommanderRow(true);
@@ -678,63 +670,61 @@ document.addEventListener('DOMContentLoaded', () => {
             const controlsDiv = document.createElement('div');
             controlsDiv.className = 'card-controls';
 
-            // Add Move Button if Advanced Settings checked
-            if (advSettingsCheckbox.checked) {
-                const moveBtn = document.createElement('button');
-                moveBtn.className = 'send-btn';
-                moveBtn.textContent = 'Send';
-                moveBtn.title = 'Move to another zone';
+            // Add Move Button
+            const moveBtn = document.createElement('button');
+            moveBtn.className = 'send-btn';
+            moveBtn.textContent = 'Send';
+            moveBtn.title = 'Move to another zone';
+            
+            // Create Context Menu Logic
+            moveBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 
-                // Create Context Menu Logic
-                moveBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    
-                    // Remove existing open menus
-                    document.querySelectorAll('.move-menu').forEach(m => m.remove());
+                // Remove existing open menus
+                document.querySelectorAll('.move-menu').forEach(m => m.remove());
 
-                    const menu = document.createElement('div');
-                    menu.className = 'move-menu';
-                    
-                    const targets = [
-                        { id: 'zone-hand', label: 'Hand' },
-                        { id: 'zone-battlefield', label: 'Battlefield' },
-                        { id: 'zone-graveyard', label: 'Graveyard' },
-                        { id: 'zone-exile', label: 'Exile' },
-                        { id: 'zone-lands', label: 'Lands' }
-                    ];
+                const menu = document.createElement('div');
+                menu.className = 'move-menu';
+                
+                const targets = [
+                    { id: 'zone-hand', label: 'Hand' },
+                    { id: 'zone-battlefield', label: 'Battlefield' },
+                    { id: 'zone-graveyard', label: 'Graveyard' },
+                    { id: 'zone-exile', label: 'Exile' },
+                    { id: 'zone-lands', label: 'Lands' }
+                ];
 
-                    targets.forEach(tgt => {
-                        if (tgt.id === zoneId) return; // Don't show current zone
-                        const btn = document.createElement('button');
-                        btn.textContent = tgt.label;
-                        btn.addEventListener('click', () => {
-                            moveCard(zoneId, index, tgt.id);
-                            menu.remove();
-                        });
-                        menu.appendChild(btn);
-                    });
-
-                    document.body.appendChild(menu);
-
-                    const rect = moveBtn.getBoundingClientRect();
-                    const menuWidth = menu.offsetWidth;
-
-                    menu.style.position = 'absolute';
-                    menu.style.top = `${rect.bottom + window.scrollY}px`;
-                    menu.style.left = `${rect.right + window.scrollX - menuWidth}px`;
-                    menu.style.right = 'auto'; // Override CSS
-                    menu.style.zIndex = '10000';
-                    
-                    // Close menu when clicking elsewhere
-                    const closeMenu = () => {
+                targets.forEach(tgt => {
+                    if (tgt.id === zoneId) return; // Don't show current zone
+                    const btn = document.createElement('button');
+                    btn.textContent = tgt.label;
+                    btn.addEventListener('click', () => {
+                        moveCard(zoneId, index, tgt.id);
                         menu.remove();
-                        document.removeEventListener('click', closeMenu);
-                    };
-                    setTimeout(() => document.addEventListener('click', closeMenu), 0);
+                    });
+                    menu.appendChild(btn);
                 });
 
-                controlsDiv.appendChild(moveBtn);
-            }
+                document.body.appendChild(menu);
+
+                const rect = moveBtn.getBoundingClientRect();
+                const menuWidth = menu.offsetWidth;
+
+                menu.style.position = 'absolute';
+                menu.style.top = `${rect.bottom + window.scrollY}px`;
+                menu.style.left = `${rect.right + window.scrollX - menuWidth}px`;
+                menu.style.right = 'auto'; // Override CSS
+                menu.style.zIndex = '10000';
+                
+                // Close menu when clicking elsewhere
+                const closeMenu = () => {
+                    menu.remove();
+                    document.removeEventListener('click', closeMenu);
+                };
+                setTimeout(() => document.addEventListener('click', closeMenu), 0);
+            });
+
+            controlsDiv.appendChild(moveBtn);
 
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-btn';
