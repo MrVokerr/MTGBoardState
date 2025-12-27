@@ -107,50 +107,98 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Check if input is a URL
         if (text.startsWith('http://') || text.startsWith('https://')) {
-            // Check for local file execution
-            if (window.location.protocol === 'file:') {
-                alert("URL Import requires a server!\n\nTo use this feature locally:\n1. Open your terminal in this folder.\n2. Run: node local_server.js\n3. Go to: http://localhost:3000\n\nAlternatively, deploy to Netlify to use it online.");
-                showStatus('Error: URL import requires a live server (Netlify) or local node server.', 'error');
-                return;
-            }
-
-            showStatus('Fetching deck from URL...', 'normal');
+            showStatus('Fetching deck...', 'normal');
             importBtn.disabled = true;
             importBtn.textContent = 'Fetching...';
+            
+            // Clear existing name to ensure we use the new one from the URL
+            deckNameInput.value = '';
 
             try {
-                // Call local Netlify Function
-                const response = await fetch(`/.netlify/functions/fetch-deck?url=${encodeURIComponent(text)}`);
-                
-                if (!response.ok) {
-                    // specific handling for 404 (function not found)
-                    if (response.status === 404) {
-                        throw new Error('Netlify Function not found. Are you running on Netlify?');
+                let deckData = null;
+
+                // ---------------------------------------------------------
+                // 1. Attempt Client-Side Fetch via CORS Proxy (Bypasses IP blocks)
+                // ---------------------------------------------------------
+                try {
+                    let apiUrl = '';
+                    if (text.includes("moxfield.com")) {
+                        const match = text.match(/moxfield\.com\/decks\/([a-zA-Z0-9\-_]+)/);
+                        if (match) apiUrl = `https://api.moxfield.com/v2/decks/all/${match[1]}`;
+                    } else if (text.includes("archidekt.com")) {
+                        const match = text.match(/archidekt\.com\/decks\/(\d+)/);
+                        if (match) apiUrl = `https://archidekt.com/api/decks/${match[1]}/`;
                     }
-                    const data = await response.json().catch(() => ({})); // try to parse error json
-                    throw new Error(data.error || `Server Error: ${response.status}`);
+
+                    if (apiUrl) {
+                        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
+                        const response = await fetch(proxyUrl);
+                        if (response.ok) {
+                            const jsonData = await response.json();
+                            
+                            // Parse Locally
+                            let list = "";
+                            let dName = jsonData.name;
+
+                            if (text.includes("moxfield.com")) {
+                                if (jsonData.mainboard) Object.entries(jsonData.mainboard).forEach(([k, v]) => list += `${v.quantity} ${k}\n`);
+                                if (jsonData.commanders) Object.entries(jsonData.commanders).forEach(([k, v]) => list += `${v.quantity} ${k}\n`);
+                            } else if (text.includes("archidekt.com")) {
+                                if (jsonData.cards) {
+                                    jsonData.cards.forEach(c => {
+                                        const cat = c.categories?.[0] || "";
+                                        if (!["Sideboard", "Maybeboard"].includes(cat)) {
+                                            list += `${c.quantity} ${c.card.oracleCard.name}\n`;
+                                        }
+                                    });
+                                }
+                            }
+
+                            deckData = { name: dName, list: list };
+                        }
+                    }
+                } catch (proxyErr) {
+                    console.warn("Proxy fetch failed, falling back to server function...", proxyErr);
                 }
 
-                const data = await response.json();
+                // ---------------------------------------------------------
+                // 2. Fallback to Server Function (if Proxy failed)
+                // ---------------------------------------------------------
+                if (!deckData) {
+                    // Check for local file execution only if we reach this fallback
+                    if (window.location.protocol === 'file:') {
+                        alert("URL Import requires a server!\n\nTo use this feature locally:\n1. Open your terminal in this folder.\n2. Run: node local_server.js\n3. Go to: http://localhost:3000\n\nAlternatively, deploy to Netlify to use it online.");
+                        throw new Error("Local file protocol restriction");
+                    }
 
-                // Success
-                deckInput.value = data.list; // Replace URL with list
+                    const response = await fetch(`/.netlify/functions/fetch-deck?url=${encodeURIComponent(text)}`);
+                    if (!response.ok) {
+                        if (response.status === 404) throw new Error('Netlify Function not found.');
+                        const errJson = await response.json().catch(() => ({}));
+                        throw new Error(errJson.error || `Server Error: ${response.status}`);
+                    }
+                    deckData = await response.json();
+                }
+
+                // ---------------------------------------------------------
+                // Success Processing
+                // ---------------------------------------------------------
+                deckInput.value = deckData.list; 
                 
-                // If user didn't provide a name, use the one from the site
                 let finalName = name;
-                if (!finalName && data.name) {
-                    deckNameInput.value = data.name;
-                    finalName = data.name;
+                if (!finalName && deckData.name) {
+                    deckNameInput.value = deckData.name;
+                    finalName = deckData.name;
                 }
 
                 if (finalName) {
-                    finalName = saveDeck(finalName, data.list);
-                    deckNameInput.value = finalName; // Update input with actual saved name
+                    finalName = saveDeck(finalName, deckData.list);
+                    deckNameInput.value = finalName;
                     loadSavedDecksToDropdown();
                     savedDecksDropdown.value = finalName;
                 }
 
-                const counts = processDeckList(data.list);
+                const counts = processDeckList(deckData.list);
                 
                 let details = `${counts.unique} Unique`;
                 if (counts.duplicatesSummary) {
@@ -158,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 showStatus(finalName ? `Fetched & saved as "${finalName}" - Imported ${counts.total} cards (${details}).` : `Fetched ${counts.total} cards (${details}).`, 'success');
-                updateOutput(); // Refresh output with new decklist if needed
+                updateOutput(); 
 
             } catch (err) {
                 console.error(err);
