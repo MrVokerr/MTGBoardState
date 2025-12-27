@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Output Elements
     const addPromptCheckbox = document.getElementById('addPromptCheckbox');
     const includeDecklistCheckbox = document.getElementById('includeDecklistCheckbox');
+    const advSettingsCheckbox = document.getElementById('advSettingsCheckbox');
 
     // Tooltip Element
     const tooltip = document.getElementById('card-tooltip');
@@ -71,6 +72,13 @@ document.addEventListener('DOMContentLoaded', () => {
     includeDecklistCheckbox.addEventListener('change', updateOutput);
     currentLifeInput.addEventListener('input', updateOutput);
     opponentInput.addEventListener('input', updateOutput);
+
+    // Re-render zones when Advanced Settings toggled
+    advSettingsCheckbox.addEventListener('change', () => {
+        for (const zoneId in state) {
+            renderZone(zoneId);
+        }
+    });
 
     addCommanderBtn.addEventListener('click', () => {
         addCommanderRow(true);
@@ -278,7 +286,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showTooltip(cardName, x, y) {
         // Prevent re-fetching if it's the same card (optional optimization)
-        // But since we use src directly, browser cache handles it mostly.
         const newSrc = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}&format=image`;
         if (tooltipImg.src !== newSrc) {
              tooltipImg.src = newSrc;
@@ -419,9 +426,23 @@ document.addEventListener('DOMContentLoaded', () => {
         tokens.forEach((t, index) => {
             const li = document.createElement('li');
             li.innerHTML = `
-                <span>${t.count}x ${t.name}</span>
+                <div class="token-item-info">
+                    <input type="number" class="token-qty-input" value="${t.count}" min="0">
+                    <span>${t.name}</span>
+                </div>
                 <button class="delete-btn" title="Remove">×</button>
             `;
+            
+            const qtyInput = li.querySelector('.token-qty-input');
+            qtyInput.addEventListener('input', () => {
+                const newQty = parseInt(qtyInput.value);
+                // We allow 0, but if it's NaN (empty), we don't update yet to allow typing
+                if (!isNaN(newQty)) {
+                    tokens[index].count = newQty;
+                    updateOutput();
+                }
+            });
+
             li.querySelector('.delete-btn').addEventListener('click', () => removeToken(index));
             tokenList.appendChild(li);
         });
@@ -575,6 +596,18 @@ document.addEventListener('DOMContentLoaded', () => {
         updateOutput();
     }
 
+    function moveCard(fromZoneId, index, toZoneId) {
+        if (fromZoneId === toZoneId) return;
+
+        const card = state[fromZoneId][index];
+        state[fromZoneId].splice(index, 1);
+        state[toZoneId].push(card);
+
+        renderZone(fromZoneId);
+        renderZone(toZoneId);
+        updateOutput();
+    }
+
     function resetZones() {
         for (const zoneId in state) {
             state[zoneId] = [];
@@ -592,16 +625,70 @@ document.addEventListener('DOMContentLoaded', () => {
         
         state[zoneId].forEach((card, index) => {
             const li = document.createElement('li');
-            li.innerHTML = `
-                <span>${card}</span>
-                <button class="delete-btn" title="Remove">×</button>
-            `;
+            li.innerHTML = `<span>${card}</span>`;
             
-            // Re-attach listener to dynamic element
-            li.querySelector('.delete-btn').addEventListener('click', () => {
+            const controlsDiv = document.createElement('div');
+            controlsDiv.className = 'card-controls';
+
+            // Add Move Button if Advanced Settings checked
+            if (advSettingsCheckbox.checked) {
+                const moveBtn = document.createElement('button');
+                moveBtn.className = 'send-btn';
+                moveBtn.textContent = 'Send';
+                moveBtn.title = 'Move to another zone';
+                
+                // Create Context Menu Logic
+                moveBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    
+                    // Remove existing open menus
+                    document.querySelectorAll('.move-menu').forEach(m => m.remove());
+
+                    const menu = document.createElement('div');
+                    menu.className = 'move-menu';
+                    
+                    const targets = [
+                        { id: 'zone-hand', label: 'Hand' },
+                        { id: 'zone-battlefield', label: 'Battlefield' },
+                        { id: 'zone-graveyard', label: 'Graveyard' },
+                        { id: 'zone-exile', label: 'Exile' },
+                        { id: 'zone-lands', label: 'Lands' }
+                    ];
+
+                    targets.forEach(tgt => {
+                        if (tgt.id === zoneId) return; // Don't show current zone
+                        const btn = document.createElement('button');
+                        btn.textContent = tgt.label;
+                        btn.addEventListener('click', () => {
+                            moveCard(zoneId, index, tgt.id);
+                            menu.remove();
+                        });
+                        menu.appendChild(btn);
+                    });
+
+                    controlsDiv.appendChild(menu);
+                    
+                    // Close menu when clicking elsewhere
+                    const closeMenu = () => {
+                        menu.remove();
+                        document.removeEventListener('click', closeMenu);
+                    };
+                    setTimeout(() => document.addEventListener('click', closeMenu), 0);
+                });
+
+                controlsDiv.appendChild(moveBtn);
+            }
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.textContent = '×';
+            deleteBtn.title = 'Remove';
+            deleteBtn.addEventListener('click', () => {
                 removeCardFromZone(zoneId, index);
             });
-            
+            controlsDiv.appendChild(deleteBtn);
+
+            li.appendChild(controlsDiv);
             listEl.appendChild(li);
         });
 
@@ -681,8 +768,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Opponent Output
         const oppBoard = opponentInput.value.trim();
-        if (oppBoard) {
+        if (oppBoard && oppBoard.toLowerCase() !== 'empty') {
             text += `Opponent's Board:\n${oppBoard}\n`;
+        } else if (oppBoard.toLowerCase() === 'empty') {
+            text += `Opponent's Board: (Empty)\n`;
         }
 
         if (text.trim() === `Current Life: ${life}`) {
