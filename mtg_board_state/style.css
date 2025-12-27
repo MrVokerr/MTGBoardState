@@ -522,9 +522,10 @@ button.danger-btn:hover {
 }
 
 .tooltip img {
-    width: 240px;
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.6);
+    width: 320px;
+    max-width: 80vw;
+    border-radius: 14px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.8);
     display: block;
 }
 
