@@ -77,6 +77,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---------------------------------------------------------
     // Hybrid Autocomplete Logic (Custom UI)
     // ---------------------------------------------------------
+
+    let allCardNames = [];
+    
+    // Fetch local database on load
+    fetch('card-names.json')
+        .then(response => response.json())
+        .then(data => {
+            allCardNames = data;
+            console.log(`Loaded ${allCardNames.length} cards into local database.`);
+        })
+        .catch(err => console.error("Failed to load card database:", err));
     
     // Close all open lists when clicking elsewhere
     document.addEventListener("click", function (e) {
@@ -95,81 +106,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let currentFocusInput = null; // Track which input is active
-    let autocompleteController = null;
 
     // Normalize string: remove accents, lowercase
     const normalizeStr = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-    const fetchSuggestions = async (query, inputElement, onSelect) => {
-        if (!query || query.length < 2) return; 
-
-        // Show loading state (if list exists)
-        showLoading(inputElement);
-
-        if (autocompleteController) {
-            autocompleteController.abort();
-        }
-        autocompleteController = new AbortController();
-
-        try {
-            const response = await fetch(
-                `https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(query)}`,
-                { signal: autocompleteController.signal }
-            );
-            if (!response.ok) return;
-
-            const json = await response.json();
-            const remoteMatches = json.data || [];
-            
-            if (document.activeElement !== inputElement) return;
-
-            renderList(inputElement, remoteMatches, query, onSelect);
-
-        } catch (e) {
-            if (e.name !== 'AbortError') {
-                console.warn("Autocomplete fetch failed", e);
-                // Remove loading if error (re-render local only)
-                renderList(inputElement, [], query, onSelect);
-            }
-        }
-    };
-
-    // Debounce Helper
-    function debounce(func, wait) {
-        let timeout;
-        return function(...args) {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func.apply(this, args), wait);
-        };
-    }
-
-    function showLoading(inputEl) {
-        let listId = inputEl.id + "autocomplete-list";
-        let a = document.getElementById(listId);
-        // If list doesn't exist, create it just for loading
-        if (!a) {
-             if (!inputEl.id) inputEl.id = "auto-" + Math.random().toString(36).substr(2, 9);
-             listId = inputEl.id + "autocomplete-list";
-             a = document.createElement("DIV");
-             a.setAttribute("id", listId);
-             a.setAttribute("class", "autocomplete-items");
-             inputEl.parentNode.appendChild(a);
-        }
-        
-        // Check if loading item already exists
-        if (!a.querySelector('.autocomplete-loading')) {
-            const l = document.createElement("DIV");
-            l.className = "autocomplete-loading";
-            l.textContent = "Searching for cards...";
-            l.style.padding = "8px 10px";
-            l.style.color = "#888";
-            l.style.fontStyle = "italic";
-            l.style.fontSize = "0.9em";
-            a.appendChild(l);
-        }
-    }
-
-    function renderList(inputEl, remoteData = [], queryVal, onSelect) {
+    function renderList(inputEl, matches, queryVal, onSelect) {
          const val = queryVal || inputEl.value;
          if (!inputEl.id) inputEl.id = "auto-" + Math.random().toString(36).substr(2, 9);
          const listId = inputEl.id + "autocomplete-list";
@@ -184,11 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
          a.setAttribute("class", "autocomplete-items");
          inputEl.parentNode.appendChild(a);
 
-         // Smart Local Filtering (Normalized)
          const normVal = normalizeStr(val);
-         const localMatches = Array.from(deckCards).filter(c => normalizeStr(c).startsWith(normVal)).sort();
-         const remoteMatches = remoteData.filter(c => !deckCards.has(c));
-
          let hasItems = false;
 
          const createItem = (match) => {
@@ -197,8 +134,6 @@ document.addEventListener('DOMContentLoaded', () => {
              b.className = "autocomplete-item";
              
              // Smart Highlighting
-             // Since we match fuzzy/normalized, we can't just slice string. 
-             // We'll just bold the length of the query if it matches start, otherwise simple text.
              const matchTest = normalizeStr(match);
              if (matchTest.startsWith(normVal)) {
                  const strong = document.createElement("strong");
@@ -212,11 +147,9 @@ document.addEventListener('DOMContentLoaded', () => {
              b.dataset.value = match;
              
              b.addEventListener("click", function(e) {
-                 // Stop propagation so document click doesn't fire immediately
                  e.stopPropagation();
                  inputEl.value = this.dataset.value;
                  
-                 // Manually close since we stopped propagation
                  const items = document.getElementsByClassName("autocomplete-items");
                  for (let i = 0; i < items.length; i++) { items[i].remove(); }
 
@@ -231,16 +164,50 @@ document.addEventListener('DOMContentLoaded', () => {
              return b;
          };
 
-         localMatches.forEach(match => a.appendChild(createItem(match)));
+         // Prioritize: 
+         // 1. Deck cards (if they match)
+         // 2. Database cards (starts with)
+         // 3. Database cards (contains)
+         
+         const deckMatches = Array.from(deckCards).filter(c => normalizeStr(c).includes(normVal)).sort();
+         
+         // Filter global database (limit to 20 to prevent DOM lag)
+         const MAX_RESULTS = 20;
+         let dbMatches = [];
+         
+         if (allCardNames.length > 0) {
+            // First pass: Starts with (high priority)
+            for (let i = 0; i < allCardNames.length && dbMatches.length < MAX_RESULTS; i++) {
+                const c = allCardNames[i];
+                if (deckCards.has(c)) continue; // Already in deck matches
+                if (normalizeStr(c).startsWith(normVal)) {
+                    dbMatches.push(c);
+                }
+            }
+            
+            // Second pass: Includes (if we have space)
+            if (dbMatches.length < MAX_RESULTS && val.length >= 3) {
+                for (let i = 0; i < allCardNames.length && dbMatches.length < MAX_RESULTS; i++) {
+                    const c = allCardNames[i];
+                    if (deckCards.has(c)) continue;
+                    if (dbMatches.includes(c)) continue; // Already added
+                    if (normalizeStr(c).includes(normVal)) {
+                        dbMatches.push(c);
+                    }
+                }
+            }
+         }
 
-         if (localMatches.length > 0 && remoteMatches.length > 0) {
+         deckMatches.forEach(match => a.appendChild(createItem(match)));
+
+         if (deckMatches.length > 0 && dbMatches.length > 0) {
              const div = document.createElement("DIV");
              div.className = "autocomplete-divider";
              div.textContent = "Suggestions";
              a.appendChild(div);
          }
 
-         remoteMatches.forEach(match => a.appendChild(createItem(match)));
+         dbMatches.forEach(match => a.appendChild(createItem(match)));
 
          if (!hasItems) a.remove();
     }
@@ -248,9 +215,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Main function to attach to inputs
     function setupAutocomplete(inp, onSelect) {
         let currentFocus = -1;
-
-        // Create the debounced fetcher specifically for this input
-        const debouncedFetch = debounce((val, el) => fetchSuggestions(val, el, onSelect), 150);
 
         inp.addEventListener("input", function(e) {
             const val = this.value;
@@ -263,12 +227,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             currentFocus = -1;
             
-            // Render local immediately
-            renderList(this, [], val, onSelect);
-
+            // Render immediately using local data
             if (val.length >= 2) {
-                // Trigger debounced remote fetch
-                debouncedFetch(val, this);
+                renderList(this, [], val, onSelect);
             }
         });
 
@@ -276,7 +237,6 @@ document.addEventListener('DOMContentLoaded', () => {
             let x = document.getElementById(this.id + "autocomplete-list");
             if (x) x = x.getElementsByTagName("div");
             
-            // Filter actual items
             let items = [];
             if (x) {
                 for (let i = 0; i < x.length; i++) {
@@ -295,7 +255,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.preventDefault();
                     items[currentFocus].click();
                 } else if (items.length === 1) {
-                     // Auto-select if only 1 option
                     e.preventDefault();
                     items[0].click();
                 }
