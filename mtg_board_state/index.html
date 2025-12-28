@@ -150,10 +150,28 @@
             </div>
         </section>
 
+        <!-- Stack Section -->
+        <section class="stack-section" id="zone-stack">
+            <div class="section-header">
+                <h2>4. The Stack</h2>
+                <span class="count">0</span>
+            </div>
+            <p style="font-size: 0.9rem; color: #a0a0a0; margin-bottom: 10px;">Add spells/abilities currently on the stack (Last added is top of stack).</p>
+            <div class="input-group">
+                <input type="text" placeholder="Add spell/ability..." class="card-input">
+                <button class="add-btn">+</button>
+            </div>
+            <ul class="card-list"></ul>
+        </section>
+
         <!-- Opponent's Board Section -->
         <section class="opponent-section">
-            <h2>4. Opponent's Board</h2>
+            <h2>5. Opponent's Board</h2>
             <p style="font-size: 0.9rem; color: #a0a0a0; margin-bottom: 10px;">List key threats, blockers, or stax pieces manually.</p>
+            <div class="input-group" style="margin-bottom: 10px;">
+                <input type="text" id="opponentCardInput" placeholder="Search card to add..." class="card-input">
+                <button id="addOpponentCardBtn" class="add-btn">+</button>
+            </div>
             <textarea id="opponentInput" placeholder="e.g., Sheoldred, the Apocalypse
 (Leave blank to exclude from output, or type 'empty' to explicitly list as empty)"></textarea>
         </section>
@@ -161,8 +179,12 @@
         <!-- Output Section -->
         <section class="output-section">
             <div class="section-header">
-                <h2>5. Output</h2>
+                <h2>6. Output</h2>
                 <div class="header-controls">
+                    <div class="checkbox-wrapper inline-checkbox">
+                        <input type="checkbox" id="stackSolverOnlyCheckbox">
+                        <label for="stackSolverOnlyCheckbox" style="color: var(--accent);">Stack Solver Only</label>
+                    </div>
                     <div class="checkbox-wrapper inline-checkbox">
                         <input type="checkbox" id="includeDecklistCheckbox">
                         <label for="includeDecklistCheckbox">Include Decklist</label>

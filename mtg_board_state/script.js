@@ -6,7 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'zone-lands': [],
         'zone-battlefield': [],
         'zone-graveyard': [],
-        'zone-exile': []
+        'zone-exile': [],
+        'zone-stack': []
     };
     const tokens = []; // Array of { name: "Goblin", count: 3 }
 
@@ -55,10 +56,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Opponent Elements
     const opponentInput = document.getElementById('opponentInput');
+    const opponentCardInput = document.getElementById('opponentCardInput');
+    const addOpponentCardBtn = document.getElementById('addOpponentCardBtn');
 
     // Output Elements
     const addPromptCheckbox = document.getElementById('addPromptCheckbox');
     const includeDecklistCheckbox = document.getElementById('includeDecklistCheckbox');
+    const stackSolverOnlyCheckbox = document.getElementById('stackSolverOnlyCheckbox');
 
     // Tooltip Element
     const tooltip = document.getElementById('card-tooltip');
@@ -290,8 +294,33 @@ document.addEventListener('DOMContentLoaded', () => {
     
     addPromptCheckbox.addEventListener('change', updateOutput);
     includeDecklistCheckbox.addEventListener('change', updateOutput);
+    stackSolverOnlyCheckbox.addEventListener('change', updateOutput);
     currentLifeInput.addEventListener('input', updateOutput);
     opponentInput.addEventListener('input', updateOutput);
+
+    // Opponent Add Logic
+    setupAutocomplete(opponentCardInput);
+
+    function addOpponentCard() {
+        const name = opponentCardInput.value.trim();
+        if (!name) return;
+
+        const currentText = opponentInput.value.trim();
+        if (currentText) {
+            opponentInput.value = currentText + '\n' + name;
+        } else {
+            opponentInput.value = name;
+        }
+
+        opponentCardInput.value = '';
+        updateOutput();
+        opponentCardInput.focus();
+    }
+
+    addOpponentCardBtn.addEventListener('click', addOpponentCard);
+    opponentCardInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addOpponentCard();
+    });
 
     addCommanderBtn.addEventListener('click', () => {
         addCommanderRow(true);
@@ -630,7 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Setup Zone Listeners
-    const zones = ['zone-hand', 'zone-lands', 'zone-battlefield', 'zone-graveyard', 'zone-exile'];
+    const zones = ['zone-hand', 'zone-lands', 'zone-battlefield', 'zone-graveyard', 'zone-exile', 'zone-stack'];
     zones.forEach(zoneId => {
         const zoneEl = document.getElementById(zoneId);
         const input = zoneEl.querySelector('.card-input');
@@ -1006,7 +1035,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     { id: 'zone-battlefield', label: 'Battlefield' },
                     { id: 'zone-graveyard', label: 'Graveyard' },
                     { id: 'zone-exile', label: 'Exile' },
-                    { id: 'zone-lands', label: 'Lands' }
+                    { id: 'zone-lands', label: 'Lands' },
+                    { id: 'zone-stack', label: 'Stack' }
                 ];
 
                 targets.forEach(tgt => {
@@ -1062,6 +1092,53 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateOutput() {
         let text = "";
 
+        const formatSection = (title, zoneId) => {
+            const cards = state[zoneId];
+            if (cards.length === 0) return "";
+            
+            let sectionText = `${title} (${cards.reduce((acc, c) => acc + c.count, 0)}):\n`;
+            cards.forEach(cardObj => {
+                if (cardObj.count > 1) {
+                    sectionText += `- ${cardObj.count}x ${cardObj.name}\n`;
+                } else {
+                    sectionText += `- ${cardObj.name}\n`;
+                }
+            });
+            sectionText += "\n";
+            return sectionText;
+        };
+
+        // ---------------------------------------------------------
+        // Stack Solver Only Mode
+        // ---------------------------------------------------------
+        if (stackSolverOnlyCheckbox.checked) {
+            text += "--- STACK SOLVER REQUEST ---\n\n";
+            const stackContent = formatSection("Current Stack (Top is last added)", "zone-stack");
+            
+            if (stackContent) {
+                text += stackContent;
+            } else {
+                text += "Current Stack: (Empty)\n";
+            }
+
+            if (addPromptCheckbox.checked) {
+                text += "\n--------------------------------------------------\n";
+                text += "**AI Analysis Request (Stack Focused):**\n";
+                text += "The user has requested a focused analysis on the current Stack interaction.\n\n";
+                text += "1. **Resolution Order:** Explain clearly how the stack resolves (Last-In, First-Out), detailing each step.\n";
+                text += "2. **Priority Windows:** Identify when players receive priority to respond.\n";
+                text += "3. **Optimal Responses:** If cards were provided in other zones (context), suggest best responses. If only stack is provided, explain the mechanical outcome.\n";
+                text += "4. **Final State:** Describe the game state after the stack is fully empty.\n";
+            }
+
+            outputText.value = text.trim();
+            return;
+        }
+
+        // ---------------------------------------------------------
+        // Standard Output
+        // ---------------------------------------------------------
+
         // Prepend Decklist if checked
         if (includeDecklistCheckbox.checked) {
             const deckContent = deckInput.value.trim();
@@ -1103,27 +1180,12 @@ document.addEventListener('DOMContentLoaded', () => {
             text += `Floating Mana: ${manaText.slice(0, -2)}\n\n`;
         }
         
-        const formatSection = (title, zoneId) => {
-            const cards = state[zoneId];
-            if (cards.length === 0) return "";
-            
-            let sectionText = `${title} (${cards.reduce((acc, c) => acc + c.count, 0)}):\n`;
-            cards.forEach(cardObj => {
-                if (cardObj.count > 1) {
-                    sectionText += `- ${cardObj.count}x ${cardObj.name}\n`;
-                } else {
-                    sectionText += `- ${cardObj.name}\n`;
-                }
-            });
-            sectionText += "\n";
-            return sectionText;
-        };
-
         text += formatSection("Hand", "zone-hand");
         text += formatSection("Battlefield", "zone-battlefield");
         text += formatSection("Lands", "zone-lands");
         text += formatSection("Graveyard", "zone-graveyard");
         text += formatSection("Exile", "zone-exile");
+        text += formatSection("Stack", "zone-stack");
 
         // Token Output
         if (tokens.length > 0) {
@@ -1150,6 +1212,12 @@ document.addEventListener('DOMContentLoaded', () => {
             text += "\n--------------------------------------------------\n";
             text += "**AI Analysis Request:**\n";
             text += "Based on the Magic: The Gathering board state provided above, please analyze the situation and provide the following:\n\n";
+            
+            // Check if stack has items for specific prompt
+            if (state['zone-stack'].length > 0) {
+                 text += "0. **URGENT: Stack Resolution:** The Stack is currently active. Explain the resolution order and any immediate responses required.\n";
+            }
+
             text += "1. **Best Lines of Play:** Identify the 2 best lines of play available right now and for the next turn.\n";
             text += "2. **Goal & Strategy:** Explain the specific goal of each line (e.g., lethal damage, board control, value engine) and how it advances the game state.\n";
             text += "3. **Combos & Synergies:** Highlight any specific card interactions, combos, or strong synergies present in the hand/board/graveyard.\n";
