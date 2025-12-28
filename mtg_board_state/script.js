@@ -734,42 +734,18 @@ document.addEventListener('DOMContentLoaded', () => {
             contentDiv.style.gap = '8px';
 
             if (cardObj.isBasic) {
-                // Basic Land Controls: [-] [Count] [+] Name
-                const minusBtn = document.createElement('button');
-                minusBtn.textContent = '-';
-                minusBtn.className = 'qty-btn';
-                minusBtn.style.padding = '0 5px';
-                
+                // Basic Land Controls: [Count] Name
                 const qtyInput = document.createElement('input');
                 qtyInput.type = 'number';
                 qtyInput.value = cardObj.count;
-                qtyInput.className = 'token-qty-input'; // Reuse style or add new
-                qtyInput.style.width = '40px';
+                qtyInput.className = 'token-qty-input'; 
+                qtyInput.style.width = '50px';
                 qtyInput.min = '1';
-
-                const plusBtn = document.createElement('button');
-                plusBtn.textContent = '+';
-                plusBtn.className = 'qty-btn';
-                plusBtn.style.padding = '0 5px';
 
                 const nameSpan = document.createElement('span');
                 nameSpan.textContent = cardObj.name;
 
                 // Events
-                minusBtn.addEventListener('click', () => {
-                    if (cardObj.count > 1) {
-                        cardObj.count--;
-                        renderZone(zoneId);
-                        updateOutput();
-                    }
-                });
-
-                plusBtn.addEventListener('click', () => {
-                    cardObj.count++;
-                    renderZone(zoneId);
-                    updateOutput();
-                });
-
                 qtyInput.addEventListener('input', () => {
                     const val = parseInt(qtyInput.value);
                     if (!isNaN(val) && val >= 1) {
@@ -779,9 +755,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 
                 // Add to DOM
-                contentDiv.appendChild(minusBtn);
                 contentDiv.appendChild(qtyInput);
-                contentDiv.appendChild(plusBtn);
                 contentDiv.appendChild(nameSpan);
 
             } else {
