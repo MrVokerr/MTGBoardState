@@ -107,8 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentFocusInput = null; // Track which input is active
 
-    // Normalize string: remove accents, lowercase
-    const normalizeStr = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    // Normalize string: remove accents, lowercase, remove ALL non-alphanumeric (spaces, punctuation)
+    const normalizeStr = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
     function renderList(inputEl, matches, queryVal, onSelect) {
          const val = queryVal || inputEl.value;
