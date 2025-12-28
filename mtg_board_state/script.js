@@ -71,6 +71,67 @@ document.addEventListener('DOMContentLoaded', () => {
     addCommanderRow(false); // Add first row (non-deletable)
 
     // ---------------------------------------------------------
+    // Hybrid Autocomplete Logic
+    // ---------------------------------------------------------
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+
+    const fetchSuggestions = debounce(async (query, inputElement) => {
+        if (!query || query.length < 2) return; // Don't spam for 1 char
+
+        try {
+            const response = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(query)}`);
+            if (!response.ok) return;
+
+            const json = await response.json();
+            const remoteMatches = json.data || [];
+            
+            updateDatalist(remoteMatches);
+        } catch (e) {
+            console.warn("Autocomplete fetch failed", e);
+        }
+    }, 200); // 200ms pause - Snappy but safe
+
+    function updateDatalist(remoteMatches = []) {
+        // 1. Get Local Matches (always include these)
+        const localCards = Array.from(deckCards).sort();
+        
+        // 2. Merge - Create a Set to remove duplicates between local and remote
+        // We prioritize Local (deck) cards first in the list usually, but standard sort is fine.
+        const allOptions = new Set([...localCards, ...remoteMatches]);
+
+        // 3. Rebuild Datalist
+        // Optimization: We could diff this, but replacing innerHTML for < 200 items is instant.
+        const fragment = document.createDocumentFragment();
+        
+        allOptions.forEach(cardName => {
+            const option = document.createElement('option');
+            option.value = cardName;
+            fragment.appendChild(option);
+        });
+
+        deckDatalist.innerHTML = '';
+        deckDatalist.appendChild(fragment);
+    }
+
+    function setupAutocomplete(inputEl) {
+        inputEl.addEventListener('input', (e) => {
+            const val = e.target.value.trim();
+            if (val.length >= 2) {
+                fetchSuggestions(val, e.target);
+            } else if (val.length === 0) {
+                // Reset to just local deck when empty
+                updateDatalist([]);
+            }
+        });
+    }
+
+    // ---------------------------------------------------------
     // Event Listeners
     // ---------------------------------------------------------
     
@@ -91,6 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Token Listeners
     addTokenBtn.addEventListener('click', addToken);
+    setupAutocomplete(tokenNameInput); // Add autocomplete to token input
     tokenNameInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') addToken();
     });
@@ -423,6 +485,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Apply Tab Cycle
         setupTabCycle(input);
+        
+        // Apply Autocomplete
+        setupAutocomplete(input);
 
         // Add button click
         addBtn.addEventListener('click', () => addCardToZone(zoneId, input));
@@ -530,6 +595,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Tab cycle for name
         setupTabCycle(nameInput, updateOutput);
+        
+        // Autocomplete
+        setupAutocomplete(nameInput);
 
         if (removeBtn) {
             removeBtn.addEventListener('click', () => {
@@ -616,13 +684,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function populateDatalist() {
-        deckDatalist.innerHTML = '';
-        const sortedCards = Array.from(deckCards).sort();
-        sortedCards.forEach(cardName => {
-            const option = document.createElement('option');
-            option.value = cardName;
-            deckDatalist.appendChild(option);
-        });
+        // Just call the updater with no remote matches to reset to local only
+        updateDatalist([]);
     }
 
     function addCardToZone(zoneId, inputEl) {
