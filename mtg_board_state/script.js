@@ -86,7 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function closeAllLists(elmnt) {
         const items = document.getElementsByClassName("autocomplete-items");
         for (let i = 0; i < items.length; i++) {
-            if (elmnt != items[i] && elmnt != currentFocusInput) {
+            // Don't close if clicking the input, the list container (scrollbar), or an item within
+            if (elmnt != items[i] && elmnt != currentFocusInput && !items[i].contains(elmnt)) {
                 items[i].parentNode.removeChild(items[i]);
             }
         }
@@ -94,13 +95,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let currentFocusInput = null; // Track which input is active
-
     let autocompleteController = null;
 
-    const fetchSuggestions = async (query, inputElement, listContainerId) => {
+    // Normalize string: remove accents, lowercase
+    const normalizeStr = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+    const fetchSuggestions = async (query, inputElement, onSelect) => {
         if (!query || query.length < 2) return; 
 
-        // Cancel previous request if it's still pending
+        // Show loading state (if list exists)
+        showLoading(inputElement);
+
         if (autocompleteController) {
             autocompleteController.abort();
         }
@@ -116,30 +121,140 @@ document.addEventListener('DOMContentLoaded', () => {
             const json = await response.json();
             const remoteMatches = json.data || [];
             
-            // Check if the input is still focused
             if (document.activeElement !== inputElement) return;
 
-            refreshAutocompleteList(inputElement, listContainerId, remoteMatches);
+            renderList(inputElement, remoteMatches, query, onSelect);
 
         } catch (e) {
             if (e.name !== 'AbortError') {
                 console.warn("Autocomplete fetch failed", e);
+                // Remove loading if error (re-render local only)
+                renderList(inputElement, [], query, onSelect);
             }
         }
     };
 
+    // Debounce Helper
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+
+    function showLoading(inputEl) {
+        let listId = inputEl.id + "autocomplete-list";
+        let a = document.getElementById(listId);
+        // If list doesn't exist, create it just for loading
+        if (!a) {
+             if (!inputEl.id) inputEl.id = "auto-" + Math.random().toString(36).substr(2, 9);
+             listId = inputEl.id + "autocomplete-list";
+             a = document.createElement("DIV");
+             a.setAttribute("id", listId);
+             a.setAttribute("class", "autocomplete-items");
+             inputEl.parentNode.appendChild(a);
+        }
+        
+        // Check if loading item already exists
+        if (!a.querySelector('.autocomplete-loading')) {
+            const l = document.createElement("DIV");
+            l.className = "autocomplete-loading";
+            l.textContent = "Searching for cards...";
+            l.style.padding = "8px 10px";
+            l.style.color = "#888";
+            l.style.fontStyle = "italic";
+            l.style.fontSize = "0.9em";
+            a.appendChild(l);
+        }
+    }
+
+    function renderList(inputEl, remoteData = [], queryVal, onSelect) {
+         const val = queryVal || inputEl.value;
+         if (!inputEl.id) inputEl.id = "auto-" + Math.random().toString(36).substr(2, 9);
+         const listId = inputEl.id + "autocomplete-list";
+
+         const existing = document.getElementById(listId);
+         if (existing) existing.remove();
+
+         if (!val) return;
+
+         const a = document.createElement("DIV");
+         a.setAttribute("id", listId);
+         a.setAttribute("class", "autocomplete-items");
+         inputEl.parentNode.appendChild(a);
+
+         // Smart Local Filtering (Normalized)
+         const normVal = normalizeStr(val);
+         const localMatches = Array.from(deckCards).filter(c => normalizeStr(c).startsWith(normVal)).sort();
+         const remoteMatches = remoteData.filter(c => !deckCards.has(c));
+
+         let hasItems = false;
+
+         const createItem = (match) => {
+             hasItems = true;
+             const b = document.createElement("DIV");
+             b.className = "autocomplete-item";
+             
+             // Smart Highlighting
+             // Since we match fuzzy/normalized, we can't just slice string. 
+             // We'll just bold the length of the query if it matches start, otherwise simple text.
+             const matchTest = normalizeStr(match);
+             if (matchTest.startsWith(normVal)) {
+                 const strong = document.createElement("strong");
+                 strong.textContent = match.substr(0, val.length);
+                 b.appendChild(strong);
+                 b.appendChild(document.createTextNode(match.substr(val.length)));
+             } else {
+                 b.textContent = match;
+             }
+             
+             b.dataset.value = match;
+             
+             b.addEventListener("click", function(e) {
+                 // Stop propagation so document click doesn't fire immediately
+                 e.stopPropagation();
+                 inputEl.value = this.dataset.value;
+                 
+                 // Manually close since we stopped propagation
+                 const items = document.getElementsByClassName("autocomplete-items");
+                 for (let i = 0; i < items.length; i++) { items[i].remove(); }
+
+                 if (onSelect) {
+                     onSelect();
+                 } else {
+                     const event = new Event('change');
+                     inputEl.dispatchEvent(event);
+                     inputEl.focus();
+                 }
+             });
+             return b;
+         };
+
+         localMatches.forEach(match => a.appendChild(createItem(match)));
+
+         if (localMatches.length > 0 && remoteMatches.length > 0) {
+             const div = document.createElement("DIV");
+             div.className = "autocomplete-divider";
+             div.textContent = "Suggestions";
+             a.appendChild(div);
+         }
+
+         remoteMatches.forEach(match => a.appendChild(createItem(match)));
+
+         if (!hasItems) a.remove();
+    }
+
     // Main function to attach to inputs
-    function setupAutocomplete(inp) {
+    function setupAutocomplete(inp, onSelect) {
         let currentFocus = -1;
+
+        // Create the debounced fetcher specifically for this input
+        const debouncedFetch = debounce((val, el) => fetchSuggestions(val, el, onSelect), 150);
 
         inp.addEventListener("input", function(e) {
             const val = this.value;
             currentFocusInput = this;
-            
-            // Close any already open lists of Autocomplete values
-            // We re-render completely to ensure fresh state
-            // But we might want to keep it open to avoid flicker? 
-            // For simplicity, we rebuild.
             
             if (!val) {
                 closeAllLists();
@@ -147,21 +262,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             currentFocus = -1;
+            
+            // Render local immediately
+            renderList(this, [], val, onSelect);
 
-            // 1. Render Local Matches Immediately
-            renderList(this, [], val);
-
-            // 2. Trigger Remote Fetch (Debounced)
             if (val.length >= 2) {
-                const listId = this.id + "-autocomplete-list";
-                fetchSuggestions(val, this, listId);
+                // Trigger debounced remote fetch
+                debouncedFetch(val, this);
             }
         });
 
         inp.addEventListener("keydown", function(e) {
             let x = document.getElementById(this.id + "autocomplete-list");
             if (x) x = x.getElementsByTagName("div");
-            // Filter out divider
+            
+            // Filter actual items
             let items = [];
             if (x) {
                 for (let i = 0; i < x.length; i++) {
@@ -176,11 +291,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentFocus--;
                 addActive(items);
             } else if (e.keyCode == 13) { // ENTER
-                e.preventDefault();
-                if (currentFocus > -1) {
-                    if (items) items[currentFocus].click();
-                } else if (items && items.length === 1) {
-                    // If only one option, select it
+                if (items.length > 0 && currentFocus > -1) {
+                    e.preventDefault();
+                    items[currentFocus].click();
+                } else if (items.length === 1) {
+                     // Auto-select if only 1 option
+                    e.preventDefault();
                     items[0].click();
                 }
             }
@@ -200,92 +316,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 x[i].classList.remove("autocomplete-active");
             }
         }
-        
-        // Helper to render the list
-        function renderList(inputEl, remoteData = [], queryVal) {
-             const val = queryVal || inputEl.value;
-             // Container ID unique to this input (using random ID if none)
-             if (!inputEl.id) inputEl.id = "auto-" + Math.random().toString(36).substr(2, 9);
-             const listId = inputEl.id + "autocomplete-list";
-
-             // Remove existing
-             const existing = document.getElementById(listId);
-             if (existing) existing.remove();
-
-             // Create container
-             const a = document.createElement("DIV");
-             a.setAttribute("id", listId);
-             a.setAttribute("class", "autocomplete-items");
-             
-             // Append to parent (must be relative)
-             inputEl.parentNode.appendChild(a);
-
-             // 1. Filter Local Deck
-             const localMatches = Array.from(deckCards).filter(c => c.toLowerCase().startsWith(val.toLowerCase())).sort();
-             
-             // 2. Filter Remote (exclude local)
-             const remoteMatches = remoteData.filter(c => !deckCards.has(c));
-
-             let hasItems = false;
-
-             // Add Local Items
-             localMatches.forEach(match => {
-                 hasItems = true;
-                 const b = document.createElement("DIV");
-                 b.className = "autocomplete-item";
-                 // Bold the matching part
-                 b.innerHTML = "<strong>" + match.substr(0, val.length) + "</strong>";
-                 b.innerHTML += match.substr(val.length);
-                 b.innerHTML += "<input type='hidden' value='" + match + "'>";
-                 b.addEventListener("click", function(e) {
-                     inputEl.value = this.getElementsByTagName("input")[0].value;
-                     closeAllLists();
-                     // Trigger change event if needed
-                     const event = new Event('change');
-                     inputEl.dispatchEvent(event);
-                     // If it's a zone input, trigger the 'Enter' logic or just focus?
-                     // The user might want to add quantity or just hit enter.
-                     // We leave focus on input.
-                     inputEl.focus();
-                 });
-                 a.appendChild(b);
-             });
-
-             // Add Divider if both exist
-             if (localMatches.length > 0 && remoteMatches.length > 0) {
-                 const div = document.createElement("DIV");
-                 div.className = "autocomplete-divider";
-                 div.textContent = "Suggestions";
-                 a.appendChild(div);
-             }
-
-             // Add Remote Items
-             remoteMatches.forEach(match => {
-                 hasItems = true;
-                 const b = document.createElement("DIV");
-                 b.className = "autocomplete-item";
-                 b.innerHTML = "<strong>" + match.substr(0, val.length) + "</strong>";
-                 b.innerHTML += match.substr(val.length);
-                 b.innerHTML += "<input type='hidden' value='" + match + "'>";
-                 b.addEventListener("click", function(e) {
-                     inputEl.value = this.getElementsByTagName("input")[0].value;
-                     closeAllLists();
-                     const event = new Event('change');
-                     inputEl.dispatchEvent(event);
-                     inputEl.focus();
-                 });
-                 a.appendChild(b);
-             });
-
-             if (!hasItems) {
-                 a.remove();
-             }
-        }
-
-        // Exposed for the async fetch to call back
-        window.refreshAutocompleteList = function(inputEl, listId, remoteMatches) {
-             renderList(inputEl, remoteMatches);
-        };
     }
 
     // ---------------------------------------------------------
@@ -299,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
     opponentInput.addEventListener('input', updateOutput);
 
     // Opponent Add Logic
-    setupAutocomplete(opponentCardInput);
+    setupAutocomplete(opponentCardInput, addOpponentCard);
 
     function addOpponentCard() {
         const name = opponentCardInput.value.trim();
@@ -334,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Token Listeners
     addTokenBtn.addEventListener('click', addToken);
-    setupAutocomplete(tokenNameInput); // Add autocomplete to token input
+    setupAutocomplete(tokenNameInput, addToken); // Add autocomplete to token input
     tokenNameInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') addToken();
     });
@@ -669,7 +699,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupTabCycle(input);
         
         // Apply Autocomplete
-        setupAutocomplete(input);
+        setupAutocomplete(input, () => addCardToZone(zoneId, input));
 
         // Add button click
         addBtn.addEventListener('click', () => addCardToZone(zoneId, input));
