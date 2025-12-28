@@ -10,6 +10,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const tokens = []; // Array of { name: "Goblin", count: 3 }
 
+    const BASIC_LANDS_MAP = new Map();
+    [
+        "Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes",
+        "Snow-Covered Plains", "Snow-Covered Island", "Snow-Covered Swamp", 
+        "Snow-Covered Mountain", "Snow-Covered Forest"
+    ].forEach(land => BASIC_LANDS_MAP.set(land.toLowerCase(), land));
+
     // DOM Elements
     const deckNameInput = document.getElementById('deckName');
     const deckInput = document.getElementById('deckInput');
@@ -619,10 +626,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addCardToZone(zoneId, inputEl) {
-        const cardName = inputEl.value.trim();
+        let cardName = inputEl.value.trim();
         if (!cardName) return;
 
-        state[zoneId].push(cardName);
+        // Check if Basic Land (Case Insensitive)
+        const lowerName = cardName.toLowerCase();
+        const isBasic = BASIC_LANDS_MAP.has(lowerName);
+        
+        // Normalize name if basic
+        if (isBasic) {
+            cardName = BASIC_LANDS_MAP.get(lowerName);
+        }
+
+        if (isBasic) {
+            // Check for existing stack
+            const existing = state[zoneId].find(c => c.name === cardName && c.isBasic);
+            if (existing) {
+                existing.count++;
+            } else {
+                state[zoneId].push({ name: cardName, count: 1, isBasic: true });
+            }
+        } else {
+            state[zoneId].push({ name: cardName, count: 1, isBasic: false });
+        }
+
         inputEl.value = ''; // Clear input
         inputEl.focus(); // Keep focus for rapid entry
 
@@ -639,13 +666,46 @@ document.addEventListener('DOMContentLoaded', () => {
     function moveCard(fromZoneId, index, toZoneId) {
         if (fromZoneId === toZoneId) return;
 
-        const card = state[fromZoneId][index];
-        state[fromZoneId].splice(index, 1);
-        state[toZoneId].push(card);
+        const cardObj = state[fromZoneId][index];
+        const cardName = cardObj.name;
+        const isBasic = cardObj.isBasic;
+
+        // Logic for Basic Lands (Send 1 at a time)
+        if (isBasic && cardObj.count > 1) {
+            cardObj.count--;
+            // Add 1 to target
+            addCardToZoneDirect(toZoneId, cardName, true);
+        } else {
+            // Move the whole entry (or last remaining 1)
+            state[fromZoneId].splice(index, 1);
+            
+            if (isBasic) {
+                 // Even if it was the last 1, we 'add' it to target to trigger stacking checks
+                 addCardToZoneDirect(toZoneId, cardName, true);
+            } else {
+                state[toZoneId].push(cardObj);
+            }
+        }
 
         renderZone(fromZoneId);
         renderZone(toZoneId);
         updateOutput();
+    }
+
+    // Helper to add without Input Element
+    function addCardToZoneDirect(zoneId, cardName, isBasic) {
+        // We assume cardName is already normalized if isBasic is true coming from internal logic
+        // But to be safe if called externally (though currently only internal):
+        if (isBasic) {
+            const existing = state[zoneId].find(c => c.name === cardName && c.isBasic);
+            if (existing) {
+                existing.count++;
+            } else {
+                state[zoneId].push({ name: cardName, count: 1, isBasic: true });
+            }
+        } else {
+            state[zoneId].push({ name: cardName, count: 1, isBasic: false });
+        }
     }
 
     function resetZones() {
@@ -663,9 +723,75 @@ document.addEventListener('DOMContentLoaded', () => {
 
         listEl.innerHTML = '';
         
-        state[zoneId].forEach((card, index) => {
+        state[zoneId].forEach((cardObj, index) => {
             const li = document.createElement('li');
-            li.innerHTML = `<span>${card}</span>`;
+            
+            // Content
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'card-content';
+            contentDiv.style.display = 'flex';
+            contentDiv.style.alignItems = 'center';
+            contentDiv.style.gap = '8px';
+
+            if (cardObj.isBasic) {
+                // Basic Land Controls: [-] [Count] [+] Name
+                const minusBtn = document.createElement('button');
+                minusBtn.textContent = '-';
+                minusBtn.className = 'qty-btn';
+                minusBtn.style.padding = '0 5px';
+                
+                const qtyInput = document.createElement('input');
+                qtyInput.type = 'number';
+                qtyInput.value = cardObj.count;
+                qtyInput.className = 'token-qty-input'; // Reuse style or add new
+                qtyInput.style.width = '40px';
+                qtyInput.min = '1';
+
+                const plusBtn = document.createElement('button');
+                plusBtn.textContent = '+';
+                plusBtn.className = 'qty-btn';
+                plusBtn.style.padding = '0 5px';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = cardObj.name;
+
+                // Events
+                minusBtn.addEventListener('click', () => {
+                    if (cardObj.count > 1) {
+                        cardObj.count--;
+                        renderZone(zoneId);
+                        updateOutput();
+                    }
+                });
+
+                plusBtn.addEventListener('click', () => {
+                    cardObj.count++;
+                    renderZone(zoneId);
+                    updateOutput();
+                });
+
+                qtyInput.addEventListener('input', () => {
+                    const val = parseInt(qtyInput.value);
+                    if (!isNaN(val) && val >= 1) {
+                        cardObj.count = val;
+                        updateOutput();
+                    }
+                });
+                
+                // Add to DOM
+                contentDiv.appendChild(minusBtn);
+                contentDiv.appendChild(qtyInput);
+                contentDiv.appendChild(plusBtn);
+                contentDiv.appendChild(nameSpan);
+
+            } else {
+                // Normal Card
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = cardObj.name;
+                contentDiv.appendChild(nameSpan);
+            }
+
+            li.appendChild(contentDiv);
             
             const controlsDiv = document.createElement('div');
             controlsDiv.className = 'card-controls';
@@ -739,7 +865,9 @@ document.addEventListener('DOMContentLoaded', () => {
             listEl.appendChild(li);
         });
 
-        countEl.textContent = state[zoneId].length;
+        // Calculate total cards (sum of counts)
+        const totalCards = state[zoneId].reduce((sum, c) => sum + c.count, 0);
+        countEl.textContent = totalCards;
     }
 
     function updateOutput() {
@@ -790,9 +918,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const cards = state[zoneId];
             if (cards.length === 0) return "";
             
-            let sectionText = `${title} (${cards.length}):\n`;
-            cards.forEach(card => {
-                sectionText += `- ${card}\n`;
+            let sectionText = `${title} (${cards.reduce((acc, c) => acc + c.count, 0)}):\n`;
+            cards.forEach(cardObj => {
+                if (cardObj.count > 1) {
+                    sectionText += `- ${cardObj.count}x ${cardObj.name}\n`;
+                } else {
+                    sectionText += `- ${cardObj.name}\n`;
+                }
             });
             sectionText += "\n";
             return sectionText;

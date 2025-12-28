@@ -408,6 +408,24 @@ button.danger-btn:hover {
     background: rgba(100, 181, 246, 0.1);
 }
 
+.qty-btn {
+    background-color: #555;
+    color: white;
+    font-size: 0.8rem;
+    line-height: 1;
+    min-width: 20px;
+    height: 20px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 2px;
+}
+
+.qty-btn:hover {
+    background-color: #666;
+}
+
 /* Move Menu Styling */
 .move-menu {
     position: absolute;
