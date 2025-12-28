@@ -265,6 +265,7 @@ button.danger-btn:hover {
     display: flex;
     align-items: center;
     gap: 10px;
+    position: relative; /* For autocomplete positioning */
 }
 
 .checkbox-wrapper {
@@ -337,6 +338,7 @@ button.danger-btn:hover {
     display: flex;
     gap: 5px;
     margin-bottom: 10px;
+    position: relative; /* For autocomplete positioning */
 }
 
 .card-input {
@@ -483,6 +485,7 @@ button.danger-btn:hover {
     display: flex;
     gap: 10px;
     margin-bottom: 10px;
+    position: relative; /* Autocomplete anchor */
 }
 
 .token-item-info {
@@ -550,6 +553,51 @@ button.danger-btn:hover {
 .tooltip.hidden {
     opacity: 0;
     visibility: hidden;
+}
+
+/* Autocomplete Custom Styling */
+.autocomplete-items {
+    position: absolute;
+    border: 1px solid var(--border);
+    border-top: none;
+    z-index: 9999;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 250px;
+    overflow-y: auto;
+    background-color: #252525;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+}
+
+.autocomplete-item {
+    padding: 8px 10px;
+    cursor: pointer;
+    background-color: #252525;
+    color: var(--text-main);
+    border-bottom: 1px solid #333;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:hover, .autocomplete-active {
+    background-color: var(--accent);
+    color: #fff;
+}
+
+.autocomplete-divider {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background-color: #1a1a1a;
+    border-top: 1px solid #444;
+    border-bottom: 1px solid #444;
+    pointer-events: none; /* Non-clickable */
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 /* Scrollbar styling */

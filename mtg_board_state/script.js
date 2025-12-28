@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const importBtn = document.getElementById('importBtn');
     const clearBtn = document.getElementById('clearBtn');
     const importStatus = document.getElementById('importStatus');
-    const deckDatalist = document.getElementById('deck-cards');
+    // const deckDatalist = document.getElementById('deck-cards'); // Removed
     const outputText = document.getElementById('outputText');
     const copyBtn = document.getElementById('copyBtn');
     const copyMsg = document.getElementById('copyMsg');
@@ -71,64 +71,217 @@ document.addEventListener('DOMContentLoaded', () => {
     addCommanderRow(false); // Add first row (non-deletable)
 
     // ---------------------------------------------------------
-    // Hybrid Autocomplete Logic
+    // Hybrid Autocomplete Logic (Custom UI)
     // ---------------------------------------------------------
-    function debounce(func, wait) {
-        let timeout;
-        return function(...args) {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func.apply(this, args), wait);
-        };
+    
+    // Close all open lists when clicking elsewhere
+    document.addEventListener("click", function (e) {
+        closeAllLists(e.target);
+    });
+
+    function closeAllLists(elmnt) {
+        const items = document.getElementsByClassName("autocomplete-items");
+        for (let i = 0; i < items.length; i++) {
+            if (elmnt != items[i] && elmnt != currentFocusInput) {
+                items[i].parentNode.removeChild(items[i]);
+            }
+        }
+        currentFocusInput = null;
     }
 
-    const fetchSuggestions = debounce(async (query, inputElement) => {
-        if (!query || query.length < 2) return; // Don't spam for 1 char
+    let currentFocusInput = null; // Track which input is active
+
+    let autocompleteController = null;
+
+    const fetchSuggestions = async (query, inputElement, listContainerId) => {
+        if (!query || query.length < 2) return; 
+
+        // Cancel previous request if it's still pending
+        if (autocompleteController) {
+            autocompleteController.abort();
+        }
+        autocompleteController = new AbortController();
 
         try {
-            const response = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(query)}`);
+            const response = await fetch(
+                `https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(query)}`,
+                { signal: autocompleteController.signal }
+            );
             if (!response.ok) return;
 
             const json = await response.json();
             const remoteMatches = json.data || [];
             
-            updateDatalist(remoteMatches);
+            // Check if the input is still focused
+            if (document.activeElement !== inputElement) return;
+
+            refreshAutocompleteList(inputElement, listContainerId, remoteMatches);
+
         } catch (e) {
-            console.warn("Autocomplete fetch failed", e);
+            if (e.name !== 'AbortError') {
+                console.warn("Autocomplete fetch failed", e);
+            }
         }
-    }, 200); // 200ms pause - Snappy but safe
+    };
 
-    function updateDatalist(remoteMatches = []) {
-        // 1. Get Local Matches (always include these)
-        const localCards = Array.from(deckCards).sort();
-        
-        // 2. Merge - Create a Set to remove duplicates between local and remote
-        // We prioritize Local (deck) cards first in the list usually, but standard sort is fine.
-        const allOptions = new Set([...localCards, ...remoteMatches]);
+    // Main function to attach to inputs
+    function setupAutocomplete(inp) {
+        let currentFocus = -1;
 
-        // 3. Rebuild Datalist
-        // Optimization: We could diff this, but replacing innerHTML for < 200 items is instant.
-        const fragment = document.createDocumentFragment();
-        
-        allOptions.forEach(cardName => {
-            const option = document.createElement('option');
-            option.value = cardName;
-            fragment.appendChild(option);
-        });
+        inp.addEventListener("input", function(e) {
+            const val = this.value;
+            currentFocusInput = this;
+            
+            // Close any already open lists of Autocomplete values
+            // We re-render completely to ensure fresh state
+            // But we might want to keep it open to avoid flicker? 
+            // For simplicity, we rebuild.
+            
+            if (!val) {
+                closeAllLists();
+                return false;
+            }
+            
+            currentFocus = -1;
 
-        deckDatalist.innerHTML = '';
-        deckDatalist.appendChild(fragment);
-    }
+            // 1. Render Local Matches Immediately
+            renderList(this, [], val);
 
-    function setupAutocomplete(inputEl) {
-        inputEl.addEventListener('input', (e) => {
-            const val = e.target.value.trim();
+            // 2. Trigger Remote Fetch (Debounced)
             if (val.length >= 2) {
-                fetchSuggestions(val, e.target);
-            } else if (val.length === 0) {
-                // Reset to just local deck when empty
-                updateDatalist([]);
+                const listId = this.id + "-autocomplete-list";
+                fetchSuggestions(val, this, listId);
             }
         });
+
+        inp.addEventListener("keydown", function(e) {
+            let x = document.getElementById(this.id + "autocomplete-list");
+            if (x) x = x.getElementsByTagName("div");
+            // Filter out divider
+            let items = [];
+            if (x) {
+                for (let i = 0; i < x.length; i++) {
+                    if (x[i].classList.contains("autocomplete-item")) items.push(x[i]);
+                }
+            }
+
+            if (e.keyCode == 40) { // DOWN
+                currentFocus++;
+                addActive(items);
+            } else if (e.keyCode == 38) { // UP
+                currentFocus--;
+                addActive(items);
+            } else if (e.keyCode == 13) { // ENTER
+                e.preventDefault();
+                if (currentFocus > -1) {
+                    if (items) items[currentFocus].click();
+                } else if (items && items.length === 1) {
+                    // If only one option, select it
+                    items[0].click();
+                }
+            }
+        });
+
+        function addActive(x) {
+            if (!x) return false;
+            removeActive(x);
+            if (currentFocus >= x.length) currentFocus = 0;
+            if (currentFocus < 0) currentFocus = (x.length - 1);
+            x[currentFocus].classList.add("autocomplete-active");
+            x[currentFocus].scrollIntoView({ block: 'nearest' });
+        }
+
+        function removeActive(x) {
+            for (let i = 0; i < x.length; i++) {
+                x[i].classList.remove("autocomplete-active");
+            }
+        }
+        
+        // Helper to render the list
+        function renderList(inputEl, remoteData = [], queryVal) {
+             const val = queryVal || inputEl.value;
+             // Container ID unique to this input (using random ID if none)
+             if (!inputEl.id) inputEl.id = "auto-" + Math.random().toString(36).substr(2, 9);
+             const listId = inputEl.id + "autocomplete-list";
+
+             // Remove existing
+             const existing = document.getElementById(listId);
+             if (existing) existing.remove();
+
+             // Create container
+             const a = document.createElement("DIV");
+             a.setAttribute("id", listId);
+             a.setAttribute("class", "autocomplete-items");
+             
+             // Append to parent (must be relative)
+             inputEl.parentNode.appendChild(a);
+
+             // 1. Filter Local Deck
+             const localMatches = Array.from(deckCards).filter(c => c.toLowerCase().startsWith(val.toLowerCase())).sort();
+             
+             // 2. Filter Remote (exclude local)
+             const remoteMatches = remoteData.filter(c => !deckCards.has(c));
+
+             let hasItems = false;
+
+             // Add Local Items
+             localMatches.forEach(match => {
+                 hasItems = true;
+                 const b = document.createElement("DIV");
+                 b.className = "autocomplete-item";
+                 // Bold the matching part
+                 b.innerHTML = "<strong>" + match.substr(0, val.length) + "</strong>";
+                 b.innerHTML += match.substr(val.length);
+                 b.innerHTML += "<input type='hidden' value='" + match + "'>";
+                 b.addEventListener("click", function(e) {
+                     inputEl.value = this.getElementsByTagName("input")[0].value;
+                     closeAllLists();
+                     // Trigger change event if needed
+                     const event = new Event('change');
+                     inputEl.dispatchEvent(event);
+                     // If it's a zone input, trigger the 'Enter' logic or just focus?
+                     // The user might want to add quantity or just hit enter.
+                     // We leave focus on input.
+                     inputEl.focus();
+                 });
+                 a.appendChild(b);
+             });
+
+             // Add Divider if both exist
+             if (localMatches.length > 0 && remoteMatches.length > 0) {
+                 const div = document.createElement("DIV");
+                 div.className = "autocomplete-divider";
+                 div.textContent = "Suggestions";
+                 a.appendChild(div);
+             }
+
+             // Add Remote Items
+             remoteMatches.forEach(match => {
+                 hasItems = true;
+                 const b = document.createElement("DIV");
+                 b.className = "autocomplete-item";
+                 b.innerHTML = "<strong>" + match.substr(0, val.length) + "</strong>";
+                 b.innerHTML += match.substr(val.length);
+                 b.innerHTML += "<input type='hidden' value='" + match + "'>";
+                 b.addEventListener("click", function(e) {
+                     inputEl.value = this.getElementsByTagName("input")[0].value;
+                     closeAllLists();
+                     const event = new Event('change');
+                     inputEl.dispatchEvent(event);
+                     inputEl.focus();
+                 });
+                 a.appendChild(b);
+             });
+
+             if (!hasItems) {
+                 a.remove();
+             }
+        }
+
+        // Exposed for the async fetch to call back
+        window.refreshAutocompleteList = function(inputEl, listId, remoteMatches) {
+             renderList(inputEl, remoteMatches);
+        };
     }
 
     // ---------------------------------------------------------
@@ -321,7 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
         opponentInput.value = '';
 
         resetZones();
-        populateDatalist();
+        // populateDatalist();
         showStatus('Cleared all data.', 'success');
     });
 
@@ -566,7 +719,7 @@ document.addEventListener('DOMContentLoaded', () => {
         row.innerHTML = `
             <div class="input-wrapper">
                 <label>Name:</label>
-                <input type="text" list="deck-cards" placeholder="Search Commander..." class="card-input cmd-name">
+                <input type="text" placeholder="Search Commander..." class="card-input cmd-name">
             </div>
             
             <div class="checkbox-wrapper">
@@ -666,7 +819,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        populateDatalist();
+        // populateDatalist(); // Removed
         
         // Generate summary of duplicates
         const duplicates = [];
@@ -684,8 +837,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function populateDatalist() {
-        // Just call the updater with no remote matches to reset to local only
-        updateDatalist([]);
+       // No-op for compatibility
     }
 
     function addCardToZone(zoneId, inputEl) {
