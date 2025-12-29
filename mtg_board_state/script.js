@@ -166,37 +166,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
          // Prioritize: 
          // 1. Deck cards (if they match)
-         // 2. Database cards (starts with)
+         // 2. Database cards (starts with) - Sorted by length (shortest first)
          // 3. Database cards (contains)
          
          const deckMatches = Array.from(deckCards).filter(c => normalizeStr(c).includes(normVal)).sort();
          
          // Filter global database (limit to 20 to prevent DOM lag)
          const MAX_RESULTS = 20;
-         let dbMatches = [];
+         let startsWithMatches = [];
+         let includesMatches = [];
          
          if (allCardNames.length > 0) {
             // First pass: Starts with (high priority)
-            for (let i = 0; i < allCardNames.length && dbMatches.length < MAX_RESULTS; i++) {
+            for (let i = 0; i < allCardNames.length; i++) {
+                if (startsWithMatches.length >= MAX_RESULTS) break;
                 const c = allCardNames[i];
                 if (deckCards.has(c)) continue; // Already in deck matches
                 if (normalizeStr(c).startsWith(normVal)) {
-                    dbMatches.push(c);
+                    startsWithMatches.push(c);
                 }
             }
             
+            // Sort starts-with by length (find "Fog" before "Fog Bank")
+            startsWithMatches.sort((a, b) => a.length - b.length);
+
             // Second pass: Includes (if we have space)
-            if (dbMatches.length < MAX_RESULTS && val.length >= 3) {
-                for (let i = 0; i < allCardNames.length && dbMatches.length < MAX_RESULTS; i++) {
+            if (startsWithMatches.length < MAX_RESULTS && val.length >= 3) {
+                for (let i = 0; i < allCardNames.length; i++) {
+                    if (startsWithMatches.length + includesMatches.length >= MAX_RESULTS) break;
                     const c = allCardNames[i];
                     if (deckCards.has(c)) continue;
-                    if (dbMatches.includes(c)) continue; // Already added
+                    // Check if already added to startsWith to avoid dupes (optimization: use Set if list large, but it's small here)
+                    if (startsWithMatches.includes(c)) continue; 
+                    
                     if (normalizeStr(c).includes(normVal)) {
-                        dbMatches.push(c);
+                        includesMatches.push(c);
                     }
                 }
             }
          }
+
+         const dbMatches = [...startsWithMatches, ...includesMatches];
 
          deckMatches.forEach(match => a.appendChild(createItem(match)));
 
@@ -216,6 +226,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function setupAutocomplete(inp, onSelect) {
         let currentFocus = -1;
 
+        // Create the debounced fetcher specifically for this input
+        const debouncedFetch = debounce((val, el) => fetchSuggestions(val, el, onSelect), 150);
+
         inp.addEventListener("input", function(e) {
             const val = this.value;
             currentFocusInput = this;
@@ -227,21 +240,31 @@ document.addEventListener('DOMContentLoaded', () => {
             
             currentFocus = -1;
             
-            // Render immediately using local data
-            if (val.length >= 2) {
-                renderList(this, [], val, onSelect);
-            }
+            // Render local immediately
+            renderList(this, [], val, onSelect);
+            
+            // Local is usually sufficient now, but we keep the debounced logic 
+            // if we ever want to revert or mix in remote data for specific things.
+            // For this version using local DB, we effectively don't need fetchSuggestions anymore 
+            // unless we want to fallback if local fails. 
+            // But since local is loaded, we just used renderList above.
         });
 
         inp.addEventListener("keydown", function(e) {
             let x = document.getElementById(this.id + "autocomplete-list");
             if (x) x = x.getElementsByTagName("div");
             
+            // Filter actual items
             let items = [];
             if (x) {
                 for (let i = 0; i < x.length; i++) {
                     if (x[i].classList.contains("autocomplete-item")) items.push(x[i]);
                 }
+            }
+            
+            if (e.keyCode === 27) { // ESCAPE
+                closeAllLists();
+                return;
             }
 
             if (e.keyCode == 40) { // DOWN
@@ -250,13 +273,18 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (e.keyCode == 38) { // UP
                 currentFocus--;
                 addActive(items);
-            } else if (e.keyCode == 13) { // ENTER
-                if (items.length > 0 && currentFocus > -1) {
-                    e.preventDefault();
-                    items[currentFocus].click();
-                } else if (items.length === 1) {
-                    e.preventDefault();
-                    items[0].click();
+            } else if (e.keyCode == 13 || e.keyCode === 9) { // ENTER or TAB
+                // If list is open
+                if (items.length > 0) {
+                    e.preventDefault(); // Prevent form submit or tab navigation
+                    
+                    if (currentFocus > -1) {
+                        // User selected something with arrows
+                        items[currentFocus].click();
+                    } else {
+                        // User typed and just hit Enter/Tab -> Select Top Result
+                        items[0].click();
+                    }
                 }
             }
         });
