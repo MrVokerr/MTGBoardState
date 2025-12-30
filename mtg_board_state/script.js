@@ -79,15 +79,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---------------------------------------------------------
 
     let allCardNames = [];
-    
-    // Fetch local database on load
-    fetch('card-names.json')
-        .then(response => response.json())
-        .then(data => {
-            allCardNames = data;
-            console.log(`Loaded ${allCardNames.length} cards into local database.`);
-        })
-        .catch(err => console.error("Failed to load card database:", err));
+
+    // 1. Try Loading from Global Variable (Works on File Protocol)
+    if (window.mtgCardNames && Array.isArray(window.mtgCardNames)) {
+        allCardNames = window.mtgCardNames;
+        console.log(`Loaded ${allCardNames.length} cards from local data file.`);
+    } 
+    else {
+        // 2. Fallback to Fetch (Requires Server)
+        if (window.location.protocol === 'file:') {
+            const warning = "⚠️ App is running without a server! Card Search & Import will not work. Please use 'start_app.bat'.";
+            console.warn(warning);
+            const statusEl = document.getElementById('importStatus');
+            if (statusEl) {
+                statusEl.textContent = warning;
+                statusEl.style.color = '#ef5350';
+            }
+        }
+
+        fetch('card-names.json')
+            .then(response => response.json())
+            .then(data => {
+                allCardNames = data;
+                console.log(`Loaded ${allCardNames.length} cards into local database.`);
+            })
+            .catch(err => console.error("Failed to load card database:", err));
+    }
     
     // Close all open lists when clicking elsewhere
     document.addEventListener("click", function (e) {
@@ -225,9 +242,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Main function to attach to inputs
     function setupAutocomplete(inp, onSelect) {
         let currentFocus = -1;
-
-        // Create the debounced fetcher specifically for this input
-        const debouncedFetch = debounce((val, el) => fetchSuggestions(val, el, onSelect), 150);
 
         inp.addEventListener("input", function(e) {
             const val = this.value;
