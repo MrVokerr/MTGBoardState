@@ -1242,17 +1242,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (addPromptCheckbox.checked && text !== "Board state is empty.") {
             text += "\n--------------------------------------------------\n";
             text += "**AI Analysis Request:**\n";
-            text += "Based on the Magic: The Gathering board state provided above, please analyze the situation and provide the following:\n\n";
+            text += "Based on the Magic: The Gathering board state provided above, analyze the situation and provide:\n\n";
             
             // Check if stack has items for specific prompt
             if (state['zone-stack'].length > 0) {
-                 text += "0. **URGENT: Stack Resolution:** The Stack is currently active. Explain the resolution order and any immediate responses required.\n";
+                 text += "0. **URGENT - Stack Resolution:** The Stack is currently active. Explain the resolution order (LIFO) and identify all priority windows where players can respond.\n";
             }
 
-            text += "1. **Best Lines of Play:** Identify the 2 best lines of play available right now and for the next turn.\n";
-            text += "2. **Goal & Strategy:** Explain the specific goal of each line (e.g., lethal damage, board control, value engine) and how it advances the game state.\n";
-            text += "3. **Combos & Synergies:** Highlight any specific card interactions, combos, or strong synergies present in the hand/board/graveyard.\n";
-            text += "4. **Recommendation:** Which line offers the best optimal outcome and why?\n";
+            text += "1. **Best Lines of Play:** Identify the 2-3 optimal lines of play for this turn and the next turn.\n";
+            text += "   - For each line, provide the EXACT sequence of actions in proper order (e.g., \"Play land, tap for mana, cast spell, activate ability, attack\").\n";
+            text += "   - Account for proper sequencing: mana generation, spell casting priority, triggered abilities, combat phases, and end-of-turn effects.\n";
+            text += "   - Consider the MTG layer system when evaluating continuous effects (copy effects, control effects, ability changes, power/toughness modifications, etc.).\n\n";
+            
+            text += "2. **Goal & Outcome:** For each line, clearly state:\n";
+            text += "   - The strategic objective (lethal damage, board control, card advantage, combo setup, etc.).\n";
+            text += "   - The expected board state after execution.\n";
+            text += "   - Any risks or vulnerabilities created.\n\n";
+            
+            text += "3. **Combos & Synergies:** Identify specific card interactions, infinite combos, or powerful synergies available in hand/battlefield/graveyard.\n\n";
+            
+            text += "4. **Final Recommendation:** State which line is optimal and why. Consider both immediate impact and long-term game plan.\n";
         }
 
         outputText.value = text.trim();
