@@ -1,0 +1,8 @@
+name = "mtg-board-state"
+compatibility_date = "2026-01-14"
+
+[site]
+bucket = "."
+
+# Cloudflare Pages will automatically detect and deploy the functions/ folder
+# No additional configuration needed for Pages Functions
