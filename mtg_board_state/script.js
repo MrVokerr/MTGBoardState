@@ -441,13 +441,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!deckData) {
                     // Check for local file execution only if we reach this fallback
                     if (window.location.protocol === 'file:') {
-                        alert("URL Import requires a server!\n\nTo use this feature locally:\n1. Open your terminal in this folder.\n2. Run: node local_server.js\n3. Go to: http://localhost:3000\n\nAlternatively, deploy to Netlify to use it online.");
+                        alert("URL Import requires a server!\n\nTo use this feature locally:\n1. Open your terminal in this folder.\n2. Run: node local_server.js\n3. Go to: http://localhost:3000\n\nAlternatively, deploy to Cloudflare Pages to use it online.");
                         throw new Error("Local file protocol restriction");
                     }
 
-                    const response = await fetch(`/.netlify/functions/fetch-deck?url=${encodeURIComponent(text)}`);
+                    const response = await fetch(`/functions/fetch-deck?url=${encodeURIComponent(text)}`);
                     if (!response.ok) {
-                        if (response.status === 404) throw new Error('Netlify Function not found.');
+                        if (response.status === 404) throw new Error('Function not found.');
                         const errJson = await response.json().catch(() => ({}));
                         throw new Error(errJson.error || `Server Error: ${response.status}`);
                     }

@@ -21,9 +21,9 @@ const server = http.createServer(async (req, res) => {
     const parsedUrl = url.parse(req.url, true);
     
     // ---------------------------------------------------------
-    // 1. Mock Netlify Function Endpoint
+    // 1. Mock Function Endpoint (supports both Netlify and Cloudflare paths)
     // ---------------------------------------------------------
-    if (parsedUrl.pathname === '/.netlify/functions/fetch-deck') {
+    if (parsedUrl.pathname === '/.netlify/functions/fetch-deck' || parsedUrl.pathname === '/functions/fetch-deck') {
         const targetUrl = parsedUrl.query.url;
 
         if (!targetUrl) {

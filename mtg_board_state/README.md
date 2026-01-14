@@ -27,13 +27,23 @@ Think of it as a "Stockfish for MTG" — a tool to digitize your current game st
     *   This starts a local server to handle CORS for deck imports.
     *   It automatically opens the app in your browser at `http://localhost:3000`.
 
-## Deployment (Netlify)
+## Deployment (Cloudflare Pages)
 
-This project is ready for one-click deployment to Netlify.
+This project is ready for deployment to Cloudflare Pages via GitHub.
 
-1.  Drag and drop the project folder into your Netlify dashboard.
-2.  The `netlify.toml` file automatically configures the serverless functions needed for URL imports.
-3.  Your site is live!
+1.  Push your repository to GitHub.
+2.  In Cloudflare Pages dashboard, create a new project and connect it to your GitHub repository.
+3.  Set build settings:
+    *   **Build command:** (leave empty)
+    *   **Build output directory:** `/` (or leave empty)
+4.  Deploy! The `functions/` folder will automatically be detected and deployed as Cloudflare Pages Functions.
+5.  Your site is live!
+
+## Deployment (Netlify - Legacy)
+
+For Netlify deployment, the old configuration is still available:
+1.  The `netlify.toml` file and `netlify/functions/` folder remain for backward compatibility.
+2.  Note: The app now uses Cloudflare Pages Functions by default (`/functions/fetch-deck`).
 
 ## Usage Guide
 
