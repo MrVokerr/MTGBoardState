@@ -18,5 +18,9 @@ Desktop.ini
 # Netlify
 .netlify/
 
+# Cloudflare Pages
+dist/
+.wrangler/
+
 # Local Server Logs (if any)
 *.log

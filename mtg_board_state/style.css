@@ -614,3 +614,32 @@ button.danger-btn:hover {
 ::-webkit-scrollbar-thumb:hover {
     background: #777; 
 }
+
+@media (max-width: 768px) {
+    .section-header {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .section-header h2 {
+        width: 100%;
+        border-bottom: none;
+        margin-bottom: 5px;
+    }
+
+    .life-tracker {
+        margin-left: 0;
+        margin-right: auto;
+    }
+
+    .mana-tracker {
+        margin-left: 0;
+        width: 100%;
+        margin-top: 5px;
+        flex-wrap: wrap;
+    }
+    
+    .mana-inputs {
+        flex-wrap: wrap;
+    }
+}
