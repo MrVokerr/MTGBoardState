@@ -19,15 +19,39 @@ const server = http.createServer(async (req, res) => {
     console.log(`${req.method} ${req.url}`);
 
     const parsedUrl = url.parse(req.url, true);
+    const pathname = parsedUrl.pathname.replace(/\/+$/, ''); // Remove trailing slashes
     
     // ---------------------------------------------------------
-    // 1. Mock Function Endpoint (supports both Netlify and Cloudflare paths)
+    // 1. Mock Function Endpoint (supports Netlify, Cloudflare, and root paths)
     // ---------------------------------------------------------
-    if (parsedUrl.pathname === '/.netlify/functions/fetch-deck' || parsedUrl.pathname === '/functions/fetch-deck') {
+    const validPaths = [
+        '/api/fetch-deck',
+        '/fetch-deck',
+        '/functions/fetch-deck', 
+        '/.netlify/functions/fetch-deck'
+    ];
+
+    if (validPaths.includes(pathname)) {
+        
+        // CORS HEADERS (Simulating Cloudflare/Netlify behavior)
+        const corsHeaders = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Content-Type': 'application/json'
+        };
+
+        // Handle CORS Preflight
+        if (req.method === 'OPTIONS') {
+            res.writeHead(204, corsHeaders);
+            res.end();
+            return;
+        }
+
         const targetUrl = parsedUrl.query.url;
 
         if (!targetUrl) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.writeHead(400, corsHeaders);
             res.end(JSON.stringify({ error: "Missing URL parameter" }));
             return;
         }
@@ -44,7 +68,7 @@ const server = http.createServer(async (req, res) => {
             }
 
             if (!apiUrl) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.writeHead(400, corsHeaders);
                 res.end(JSON.stringify({ error: "Unsupported site" }));
                 return;
             }
@@ -60,7 +84,7 @@ const server = http.createServer(async (req, res) => {
             });
 
             if (!response.ok) {
-                res.writeHead(response.status, { 'Content-Type': 'application/json' });
+                res.writeHead(response.status, corsHeaders);
                 res.end(JSON.stringify({ error: `External API Error: ${response.status}` }));
                 return;
             }
@@ -86,12 +110,12 @@ const server = http.createServer(async (req, res) => {
                 }
             }
 
-            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.writeHead(200, corsHeaders);
             res.end(JSON.stringify({ name: deckName, list: deckListText }));
 
         } catch (error) {
             console.error("Fetch Error:", error);
-            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.writeHead(500, corsHeaders);
             res.end(JSON.stringify({ error: error.message || "Server Error" }));
         }
         return;

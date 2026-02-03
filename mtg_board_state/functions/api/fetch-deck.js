@@ -1,12 +1,29 @@
 export async function onRequest(context) {
     const { request } = context;
+    
+    // CORS headers
+    const corsHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Content-Type': 'application/json'
+    };
+    
+    // Handle CORS preflight
+    if (request.method === 'OPTIONS') {
+        return new Response(null, {
+            status: 204,
+            headers: corsHeaders
+        });
+    }
+    
     const url = new URL(request.url);
     const deckUrl = url.searchParams.get('url');
 
     if (!deckUrl) {
         return new Response(JSON.stringify({ error: "Missing URL parameter" }), {
             status: 400,
-            headers: { 'Content-Type': 'application/json' }
+            headers: corsHeaders
         });
     }
 
@@ -27,7 +44,8 @@ export async function onRequest(context) {
             
             const response = await fetch(apiUrl, {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Referer': 'https://www.moxfield.com/',
                     'Accept': 'application/json'
                 }
             });
@@ -62,7 +80,13 @@ export async function onRequest(context) {
             const deckId = match[1];
             const apiUrl = `https://archidekt.com/api/decks/${deckId}/`;
             
-            const response = await fetch(apiUrl);
+            const response = await fetch(apiUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Referer': 'https://archidekt.com/',
+                    'Accept': 'application/json'
+                }
+            });
             if (!response.ok) throw new Error(`Archidekt API error: ${response.status}`);
             
             const data = await response.json();
@@ -87,7 +111,7 @@ export async function onRequest(context) {
         else {
             return new Response(JSON.stringify({ error: "Unsupported site. Currently supports Moxfield and Archidekt." }), {
                 status: 400,
-                headers: { 'Content-Type': 'application/json' }
+                headers: corsHeaders
             });
         }
 
@@ -96,13 +120,13 @@ export async function onRequest(context) {
             list: deckListText 
         }), {
             status: 200,
-            headers: { 'Content-Type': 'application/json' }
+            headers: corsHeaders
         });
 
     } catch (error) {
         return new Response(JSON.stringify({ error: error.message }), {
             status: 500,
-            headers: { 'Content-Type': 'application/json' }
+            headers: corsHeaders
         });
     }
 }

@@ -390,53 +390,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 let deckData = null;
+                const dName = text.match(/decks\/([a-zA-Z0-9\-_]+)/)?.[1] || "Imported Deck";
 
                 // ---------------------------------------------------------
-                // 1. Attempt Client-Side Fetch via CORS Proxy (Bypasses IP blocks)
-                // ---------------------------------------------------------
-                try {
-                    let apiUrl = '';
-                    if (text.includes("moxfield.com")) {
-                        const match = text.match(/moxfield\.com\/decks\/([a-zA-Z0-9\-_]+)/);
-                        if (match) apiUrl = `https://api.moxfield.com/v2/decks/all/${match[1]}`;
-                    } else if (text.includes("archidekt.com")) {
-                        const match = text.match(/archidekt\.com\/decks\/(\d+)/);
-                        if (match) apiUrl = `https://archidekt.com/api/decks/${match[1]}/`;
-                    }
-
-                    if (apiUrl) {
-                        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
-                        const response = await fetch(proxyUrl);
-                        if (response.ok) {
-                            const jsonData = await response.json();
-                            
-                            // Parse Locally
-                            let list = "";
-                            let dName = jsonData.name;
-
-                            if (text.includes("moxfield.com")) {
-                                if (jsonData.mainboard) Object.entries(jsonData.mainboard).forEach(([k, v]) => list += `${v.quantity} ${k}\n`);
-                                if (jsonData.commanders) Object.entries(jsonData.commanders).forEach(([k, v]) => list += `${v.quantity} ${k}\n`);
-                            } else if (text.includes("archidekt.com")) {
-                                if (jsonData.cards) {
-                                    jsonData.cards.forEach(c => {
-                                        const cat = c.categories?.[0] || "";
-                                        if (!["Sideboard", "Maybeboard"].includes(cat)) {
-                                            list += `${c.quantity} ${c.card.oracleCard.name}\n`;
-                                        }
-                                    });
-                                }
-                            }
-
-                            deckData = { name: dName, list: list };
-                        }
-                    }
-                } catch (proxyErr) {
-                    console.warn("Proxy fetch failed, falling back to server function...", proxyErr);
-                }
-
-                // ---------------------------------------------------------
-                // 2. Fallback to Server Function (if Proxy failed)
+                // 1. Fetch from Server Function
                 // ---------------------------------------------------------
                 if (!deckData) {
                     // Check for local file execution only if we reach this fallback
@@ -445,13 +402,41 @@ document.addEventListener('DOMContentLoaded', () => {
                         throw new Error("Local file protocol restriction");
                     }
 
-                    const response = await fetch(`/functions/fetch-deck?url=${encodeURIComponent(text)}`);
+                    // Strict Cloudflare Pages Function endpoint
+                    // defined in _routes.json
+                    const endpoint = '/api/fetch-deck';
+                    console.log(`Fetching from ${endpoint}...`);
+
+                    let response;
+                    try {
+                        response = await fetch(`${endpoint}?url=${encodeURIComponent(text)}`);
+                    } catch (netErr) {
+                         throw new Error(`Network error connecting to ${endpoint}: ${netErr.message}`);
+                    }
+
+                    // Check for SPA Fallback (HTML response instead of JSON)
+                    const contentType = response.headers.get("content-type");
+                    if (response.ok && contentType && !contentType.includes("application/json")) {
+                        // It returned HTML (likely index.html). This means the Function is not running.
+                        try {
+                             const htmlPreview = (await response.text()).substring(0, 100);
+                             console.error("Server returned HTML:", htmlPreview);
+                        } catch(e) {}
+                        
+                        throw new Error(`Cloudflare Function Error: The server returned HTML instead of JSON. Ensure the 'functions' folder was included in your upload and _routes.json is present.`);
+                    }
+
                     if (!response.ok) {
-                        if (response.status === 404) throw new Error('Function not found.');
+                        if (response.status === 404) throw new Error(`Endpoint ${endpoint} not found (404). Check deployment structure.`);
                         const errJson = await response.json().catch(() => ({}));
                         throw new Error(errJson.error || `Server Error: ${response.status}`);
                     }
-                    deckData = await response.json();
+                    
+                    try {
+                        deckData = await response.json();
+                    } catch (e) {
+                         throw new Error("Invalid JSON response from server.");
+                    }
                 }
 
                 // ---------------------------------------------------------

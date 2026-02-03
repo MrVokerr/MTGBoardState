@@ -1,9 +1,27 @@
 exports.handler = async function(event, context) {
-    const { url } = event.queryStringParameters;
+    // CORS headers
+    const corsHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Content-Type': 'application/json'
+    };
+    
+    // Handle CORS preflight
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 204,
+            headers: corsHeaders,
+            body: ''
+        };
+    }
+    
+    const { url } = event.queryStringParameters || {};
 
     if (!url) {
         return {
             statusCode: 400,
+            headers: corsHeaders,
             body: JSON.stringify({ error: "Missing URL parameter" })
         };
     }
@@ -85,12 +103,14 @@ exports.handler = async function(event, context) {
         else {
             return {
                 statusCode: 400,
+                headers: corsHeaders,
                 body: JSON.stringify({ error: "Unsupported site. Currently supports Moxfield and Archidekt." })
             };
         }
 
         return {
             statusCode: 200,
+            headers: corsHeaders,
             body: JSON.stringify({ 
                 name: deckName,
                 list: deckListText 
@@ -100,6 +120,7 @@ exports.handler = async function(event, context) {
     } catch (error) {
         return {
             statusCode: 500,
+            headers: corsHeaders,
             body: JSON.stringify({ error: error.message })
         };
     }
