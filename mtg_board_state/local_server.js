@@ -22,18 +22,17 @@ const server = http.createServer(async (req, res) => {
     const pathname = parsedUrl.pathname.replace(/\/+$/, ''); // Remove trailing slashes
     
     // ---------------------------------------------------------
-    // 1. Mock Function Endpoint (supports Netlify, Cloudflare, and root paths)
+    // 1. Mock Function Endpoint (Simulates Cloudflare Pages Functions)
     // ---------------------------------------------------------
     const validPaths = [
         '/api/fetch-deck',
         '/fetch-deck',
-        '/functions/fetch-deck', 
-        '/.netlify/functions/fetch-deck'
+        '/functions/fetch-deck'
     ];
 
     if (validPaths.includes(pathname)) {
         
-        // CORS HEADERS (Simulating Cloudflare/Netlify behavior)
+        // CORS HEADERS (Simulating Cloudflare behavior)
         const corsHeaders = {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, OPTIONS',

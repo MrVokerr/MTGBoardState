@@ -15,9 +15,6 @@ Desktop.ini
 *.swp
 *.swo
 
-# Netlify
-.netlify/
-
 # Cloudflare Pages
 dist/
 .wrangler/

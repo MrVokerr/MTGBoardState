@@ -1,0 +1,645 @@
+:root {
+    --bg-color: #1e1e1e;
+    --card-bg: #2d2d2d;
+    --text-main: #e0e0e0;
+    --text-muted: #a0a0a0;
+    --accent: #64b5f6;
+    --accent-hover: #42a5f5;
+    --border: #444;
+    --success: #66bb6a;
+    --danger: #ef5350;
+    --danger-hover: #c62828;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    line-height: 1.6;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+h1 {
+    font-size: 2rem;
+    color: var(--accent);
+}
+
+h2 {
+    font-size: 1.25rem;
+    margin-bottom: 15px;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 5px;
+}
+
+section {
+    background-color: var(--card-bg);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+/* Import Section */
+.saved-decks-control {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px dashed var(--border);
+}
+
+#savedDecksDropdown {
+    flex: 1;
+    background-color: #121212;
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.import-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+input[type="text"], input[type="number"] {
+    background-color: #121212;
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    padding: 8px;
+    border-radius: 4px;
+}
+
+textarea {
+    width: 100%;
+    background-color: #121212;
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    padding: 10px;
+    border-radius: 4px;
+    font-family: monospace;
+    resize: vertical;
+}
+
+#deckInput {
+    height: 100px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+button {
+    background-color: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background-color: var(--accent-hover);
+}
+
+button.secondary-btn {
+    background-color: #555;
+}
+
+button.secondary-btn:hover {
+    background-color: #666;
+}
+
+button.danger-btn {
+    background-color: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    padding: 8px 12px;
+}
+
+button.danger-btn:hover {
+    background-color: var(--danger);
+    color: white;
+}
+
+.status-msg {
+    margin-top: 10px;
+    font-size: 0.9rem;
+    color: var(--success);
+    min-height: 1.5em;
+}
+
+/* Section Header for Heading + Inline controls */
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 15px;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 5px;
+}
+
+.section-header h2 {
+    margin-bottom: 0;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.header-controls {
+    display: flex;
+    gap: 20px;
+    margin-left: auto;
+}
+
+.inline-checkbox {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.life-tracker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-left: 20px;
+}
+
+.life-tracker input {
+    width: 60px !important;
+    text-align: center;
+}
+
+.mana-tracker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-left: auto; /* Push to the right */
+}
+
+.mana-inputs {
+    display: flex;
+    gap: 8px;
+}
+
+.mana-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.mana-group label {
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+/* Mana Pips Styling */
+.pip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 900;
+    color: #000;
+    text-shadow: 0px 0px 1px rgba(255,255,255,0.5);
+    box-shadow: inset 0 -1px 2px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.5);
+    margin-bottom: 2px;
+}
+
+.pip-w { background-color: #f8f6d8; }
+.pip-u { background-color: #c1d7e9; }
+.pip-b { background-color: #bab1ab; color: #fff; text-shadow: none; }
+.pip-r { background-color: #e49977; }
+.pip-g { background-color: #a3c095; }
+.pip-c { background-color: #ccc; }
+
+.mana-group input {
+    width: 40px !important;
+    padding: 2px !important;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+/* Commander Section */
+.commander-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #3d3d3d;
+}
+
+.commander-row:last-child {
+    border-bottom: none;
+}
+
+.input-wrapper, .tax-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative; /* For autocomplete positioning */
+}
+
+.checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    user-select: none;
+    cursor: pointer;
+}
+
+.checkbox-wrapper input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.commander-row .card-input {
+    width: 250px;
+}
+
+.commander-row input[type="number"] {
+    width: 60px;
+}
+
+.remove-commander-btn {
+    background: none;
+    color: var(--danger);
+    font-size: 1.2rem;
+    padding: 4px 8px;
+}
+
+.remove-commander-btn:hover {
+    background: rgba(239, 83, 80, 0.1);
+}
+
+/* Board Section */
+.zones-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.zone {
+    background-color: #383838;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+}
+
+.zone-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.zone-header h3 {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+}
+
+.count {
+    background: var(--bg-color);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+}
+
+.input-group {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 10px;
+    position: relative; /* For autocomplete positioning */
+}
+
+.card-input {
+    flex: 1;
+    background-color: #121212;
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    padding: 6px;
+    border-radius: 4px;
+}
+
+.add-btn {
+    padding: 6px 12px;
+}
+
+.card-list {
+    list-style: none;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.card-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #444;
+    margin-bottom: 5px;
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-size: 0.95rem;
+    position: relative; /* For tooltip context */
+}
+
+/* Special hover for card text to imply interactivity */
+.card-list li span {
+    cursor: help;
+    border-bottom: 1px dotted #aaa;
+    flex-grow: 1;
+}
+
+.card-controls {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.delete-btn {
+    background: none;
+    color: var(--danger);
+    padding: 2px 6px;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.delete-btn:hover {
+    background: rgba(239, 83, 80, 0.1);
+}
+
+.send-btn {
+    background: none;
+    color: var(--accent);
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+}
+
+.send-btn:hover {
+    background: rgba(100, 181, 246, 0.1);
+}
+
+.qty-btn {
+    background-color: #555;
+    color: white;
+    font-size: 0.8rem;
+    line-height: 1;
+    min-width: 20px;
+    height: 20px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 2px;
+}
+
+.qty-btn:hover {
+    background-color: #666;
+}
+
+/* Move Menu Styling */
+.move-menu {
+    position: absolute;
+    right: 30px; /* Position to the left of the delete button */
+    top: 100%;
+    background-color: #252525;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    min-width: 100px;
+    overflow: hidden;
+}
+
+.move-menu button {
+    background: none;
+    border: none;
+    color: var(--text-main);
+    padding: 6px 12px;
+    text-align: left;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border-bottom: 1px solid #333;
+}
+
+.move-menu button:last-child {
+    border-bottom: none;
+}
+
+.move-menu button:hover {
+    background-color: var(--accent);
+    color: white;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Tokens Section */
+.tokens-section {
+    margin-top: 20px;
+    border-top: 1px dashed var(--border);
+    padding-top: 20px;
+}
+
+.tokens-section h3 {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.token-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    position: relative; /* Autocomplete anchor */
+}
+
+.token-item-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-grow: 1;
+}
+
+.token-qty-input {
+    width: 50px !important;
+    padding: 2px 5px !important;
+    background-color: #121212;
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    border-radius: 3px;
+    text-align: center;
+}
+
+/* Opponent Section */
+#opponentInput {
+    height: 150px;
+}
+
+/* Output Section */
+#outputText {
+    height: 200px;
+    margin-top: 10px;
+}
+
+.output-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+.fade {
+    opacity: 0;
+    transition: opacity 0.5s;
+    color: var(--success);
+}
+
+.fade.visible {
+    opacity: 1;
+}
+
+/* Tooltip Styling */
+.tooltip {
+    position: fixed;
+    z-index: 1000;
+    pointer-events: none;
+    background: transparent;
+    transition: opacity 0.2s;
+}
+
+.tooltip img {
+    width: 320px;
+    max-width: 80vw;
+    border-radius: 14px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.8);
+    display: block;
+}
+
+.tooltip.hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* Autocomplete Custom Styling */
+.autocomplete-items {
+    position: absolute;
+    border: 1px solid var(--border);
+    border-top: none;
+    z-index: 9999;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 250px;
+    overflow-y: auto;
+    background-color: #252525;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+}
+
+.autocomplete-item {
+    padding: 8px 10px;
+    cursor: pointer;
+    background-color: #252525;
+    color: var(--text-main);
+    border-bottom: 1px solid #333;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:hover, .autocomplete-active {
+    background-color: var(--accent);
+    color: #fff;
+}
+
+.autocomplete-divider {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background-color: #1a1a1a;
+    border-top: 1px solid #444;
+    border-bottom: 1px solid #444;
+    pointer-events: none; /* Non-clickable */
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #1e1e1e; 
+}
+::-webkit-scrollbar-thumb {
+    background: #555; 
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #777; 
+}
+
+@media (max-width: 768px) {
+    .section-header {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .section-header h2 {
+        width: 100%;
+        border-bottom: none;
+        margin-bottom: 5px;
+    }
+
+    .life-tracker {
+        margin-left: 0;
+        margin-right: auto;
+    }
+
+    .mana-tracker {
+        margin-left: 0;
+        width: 100%;
+        margin-top: 5px;
+        flex-wrap: wrap;
+    }
+    
+    .mana-inputs {
+        flex-wrap: wrap;
+    }
+}

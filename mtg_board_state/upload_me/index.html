@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTG Board State Snapshot</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>MTG Board State Snapshot</h1>
+            <p>Import your deck, build your board state, and export text.</p>
+        </header>
+
+        <!-- Deck Import Section -->
+        <section class="import-section">
+            <h2>1. Import Deck</h2>
+            
+            <!-- Saved Decks Control -->
+            <div class="saved-decks-control">
+                <select id="savedDecksDropdown">
+                    <option value="">-- Load a saved deck --</option>
+                </select>
+                <button id="loadDeckBtn" class="secondary-btn">Load</button>
+                <button id="deleteDeckBtn" class="danger-btn" title="Delete selected deck">🗑️</button>
+            </div>
+
+            <div class="import-controls">
+                <input type="text" id="deckName" placeholder="Deck Name (e.g., 'Mono Red Aggro')">
+                <textarea id="deckInput" placeholder="Paste your decklist here OR a URL from Moxfield/Archidekt..."></textarea>
+                <div class="action-buttons">
+                    <button id="importBtn">Save & Import Deck</button>
+                    <button id="clearBtn" class="secondary-btn">Clear All</button>
+                </div>
+            </div>
+            <p id="importStatus" class="status-msg"></p>
+        </section>
+
+        <!-- Hidden Datalist for Autocomplete -->
+        <datalist id="deck-cards"></datalist>
+
+        <!-- Commander Section -->
+        <section class="commander-section">
+            <div class="section-header">
+                <h2>2. Commander</h2>
+                <button id="addCommanderBtn" class="secondary-btn">+ Add Partner/Companion</button>
+            </div>
+            <div id="commanderList">
+                <!-- Initial commander row will be added by JS -->
+            </div>
+        </section>
+
+        <!-- Board State Section -->
+        <section class="board-section">
+            <div class="section-header">
+                <h2>3. Set Board State</h2>
+                <div class="life-tracker">
+                    <label for="currentLife">❤️ Life:</label>
+                    <input type="number" id="currentLife" value="40">
+                </div>
+                <div class="mana-tracker">
+                    <span>Floating:</span>
+                    <div class="mana-inputs">
+                        <div class="mana-group"><label class="pip pip-w">W</label><input type="number" id="mana-w" min="0" value="0"></div>
+                        <div class="mana-group"><label class="pip pip-u">U</label><input type="number" id="mana-u" min="0" value="0"></div>
+                        <div class="mana-group"><label class="pip pip-b">B</label><input type="number" id="mana-b" min="0" value="0"></div>
+                        <div class="mana-group"><label class="pip pip-r">R</label><input type="number" id="mana-r" min="0" value="0"></div>
+                        <div class="mana-group"><label class="pip pip-g">G</label><input type="number" id="mana-g" min="0" value="0"></div>
+                        <div class="mana-group"><label class="pip pip-c">C</label><input type="number" id="mana-c" min="0" value="0"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="zones-grid">
+                <!-- Hand Zone -->
+                <div class="zone" id="zone-hand">
+                    <div class="zone-header">
+                        <h3>Hand</h3>
+                        <span class="count">0</span>
+                    </div>
+                    <div class="input-group">
+                        <input type="text" placeholder="Add card..." class="card-input">
+                        <button class="add-btn">+</button>
+                    </div>
+                    <ul class="card-list"></ul>
+                </div>
+
+                <!-- Lands Zone -->
+                <div class="zone" id="zone-lands">
+                    <div class="zone-header">
+                        <h3>Lands</h3>
+                        <span class="count">0</span>
+                    </div>
+                    <div class="input-group">
+                        <input type="text" placeholder="Add land..." class="card-input">
+                        <button class="add-btn">+</button>
+                    </div>
+                    <ul class="card-list"></ul>
+                </div>
+
+                <!-- Battlefield Zone -->
+                <div class="zone" id="zone-battlefield">
+                    <div class="zone-header">
+                        <h3>Battlefield</h3>
+                        <span class="count">0</span>
+                    </div>
+                    <div class="input-group">
+                        <input type="text" placeholder="Add permanent..." class="card-input">
+                        <button class="add-btn">+</button>
+                    </div>
+                    <ul class="card-list"></ul>
+                </div>
+
+                <!-- Graveyard Zone -->
+                <div class="zone" id="zone-graveyard">
+                    <div class="zone-header">
+                        <h3>Graveyard</h3>
+                        <span class="count">0</span>
+                    </div>
+                    <div class="input-group">
+                        <input type="text" placeholder="Add card..." class="card-input">
+                        <button class="add-btn">+</button>
+                    </div>
+                    <ul class="card-list"></ul>
+                </div>
+
+                <!-- Exile Zone -->
+                <div class="zone" id="zone-exile">
+                    <div class="zone-header">
+                        <h3>Exile</h3>
+                        <span class="count">0</span>
+                    </div>
+                    <div class="input-group">
+                        <input type="text" placeholder="Add card..." class="card-input">
+                        <button class="add-btn">+</button>
+                    </div>
+                    <ul class="card-list"></ul>
+                </div>
+            </div>
+
+            <!-- Token Section -->
+            <div class="tokens-section">
+                <h3>Tokens & Counters</h3>
+                <div class="token-controls">
+                    <input type="number" id="tokenCount" value="1" min="1" style="width: 60px;">
+                    <input type="text" id="tokenName" placeholder="e.g., Goblin, Treasure, +1/+1 Counter" class="card-input">
+                    <button id="addTokenBtn" class="add-btn">Add</button>
+                </div>
+                <ul id="tokenList" class="card-list"></ul>
+            </div>
+        </section>
+
+        <!-- Stack Section -->
+        <section class="stack-section" id="zone-stack">
+            <div class="section-header">
+                <h2>4. The Stack</h2>
+                <span class="count">0</span>
+            </div>
+            <p style="font-size: 0.9rem; color: #a0a0a0; margin-bottom: 10px;">Add spells/abilities currently on the stack (Last added is top of stack).</p>
+            <div class="input-group">
+                <input type="text" placeholder="Add spell/ability..." class="card-input">
+                <button class="add-btn">+</button>
+            </div>
+            <ul class="card-list"></ul>
+        </section>
+
+        <!-- Opponent's Board Section -->
+        <section class="opponent-section">
+            <h2>5. Opponent's Board</h2>
+            <p style="font-size: 0.9rem; color: #a0a0a0; margin-bottom: 10px;">List key threats, blockers, or stax pieces manually.</p>
+            <div class="input-group" style="margin-bottom: 10px;">
+                <input type="text" id="opponentCardInput" placeholder="Search card to add..." class="card-input">
+                <button id="addOpponentCardBtn" class="add-btn">+</button>
+            </div>
+            <textarea id="opponentInput" placeholder="e.g., Sheoldred, the Apocalypse
+(Leave blank to exclude from output, or type 'empty' to explicitly list as empty)"></textarea>
+        </section>
+
+        <!-- Output Section -->
+        <section class="output-section">
+            <div class="section-header">
+                <h2>6. Output</h2>
+                <div class="header-controls">
+                    <div class="checkbox-wrapper inline-checkbox">
+                        <input type="checkbox" id="stackSolverOnlyCheckbox">
+                        <label for="stackSolverOnlyCheckbox" style="color: var(--accent);">Stack Solver Only</label>
+                    </div>
+                    <div class="checkbox-wrapper inline-checkbox">
+                        <input type="checkbox" id="includeDecklistCheckbox">
+                        <label for="includeDecklistCheckbox">Include Decklist</label>
+                    </div>
+                    <div class="checkbox-wrapper inline-checkbox">
+                        <input type="checkbox" id="addPromptCheckbox">
+                        <label for="addPromptCheckbox">Add AI Strategy Prompt</label>
+                    </div>
+                </div>
+            </div>
+            <div class="output-controls">
+                <button id="copyBtn">Copy to Clipboard</button>
+                <span id="copyMsg" class="fade">Copied!</span>
+            </div>
+            <textarea id="outputText" readonly placeholder="Board state will appear here..."></textarea>
+        </section>
+    </div>
+
+    <!-- Image Tooltip -->
+    <div id="card-tooltip" class="tooltip hidden">
+        <img src="" alt="Card Image">
+    </div>
+
+    <script src="card-names-data.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -34,17 +34,11 @@ This project is ready for deployment to Cloudflare Pages via GitHub.
 1. Push your repository to GitHub.
 2. In Cloudflare Pages dashboard, create a new project and connect it to your GitHub repository.
 3. Set build settings:
-   - **Build command:** (leave empty)
-   - **Build output directory:** `/` (or leave empty)
+   - **Framework Preset:** None / Custom
+   - **Build command:** `node build.js`
+   - **Build output directory:** `dist` 
 4. Deploy! The `functions/` folder will automatically be detected and deployed as Cloudflare Pages Functions.
 5. Your site is live!
-
-## Deployment (Netlify - Legacy)
-
-For Netlify deployment, the old configuration is still available:
-
-1. The `netlify.toml` file and `netlify/functions/` folder remain for backward compatibility.
-2. Note: The app now uses Cloudflare Pages Functions by default (`/functions/fetch-deck`).
 
 ## Usage Guide
 

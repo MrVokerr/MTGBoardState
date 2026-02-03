@@ -1,49 +1,4 @@
-// Build script for MTG Board State Manager
-// Copies all necessary files to the dist folder AND generates _worker.js for Drag & Drop support
 
-const fs = require('fs');
-const path = require('path');
-
-console.log('Building project...\n');
-
-// Clean and create dist directory
-const distDir = path.join(__dirname, 'dist');
-
-if (fs.existsSync(distDir)) {
-    fs.rmSync(distDir, { recursive: true, force: true });
-}
-fs.mkdirSync(distDir);
-
-// Files to copy to dist root
-const staticFiles = [
-    'index.html',
-    'style.css',
-    'script.js',
-    'card-names-data.js',
-    'card-names.json',
-    '_routes.json' // We keep this to help routing, though _worker.js takes precedence
-];
-
-// Copy static files
-console.log('Copying static files...');
-staticFiles.forEach(file => {
-    if (fs.existsSync(path.join(__dirname, file))) {
-        fs.copyFileSync(
-            path.join(__dirname, file),
-            path.join(distDir, file)
-        );
-        console.log(`  ✓ ${file}`);
-    } else {
-        console.warn(`  ⚠️ Missing file: ${file}`);
-    }
-});
-
-// ----------------------------------------------------------------
-// GENERATE _worker.js (The Magic Fix for Drag & Drop)
-// ----------------------------------------------------------------
-console.log('\nGenerating _worker.js for Drag & Drop support...');
-
-const workerContent = `
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -78,11 +33,11 @@ export default {
 
             // Moxfield Handler
             if (deckUrl.includes("moxfield.com")) {
-                const match = deckUrl.match(/moxfield\\.com\\/decks\\/([a-zA-Z0-9\\-_]+)/);
+                const match = deckUrl.match(/moxfield\.com\/decks\/([a-zA-Z0-9\-_]+)/);
                 if (!match) throw new Error("Invalid Moxfield URL format");
                 
                 const deckId = match[1];
-                const apiUrl = \`https://api.moxfield.com/v2/decks/all/\${deckId}\`;
+                const apiUrl = `https://api.moxfield.com/v2/decks/all/${deckId}`;
                 
                 const response = await fetch(apiUrl, {
                     headers: {
@@ -91,29 +46,29 @@ export default {
                         'Accept': 'application/json'
                     }
                 });
-                if (!response.ok) throw new Error(\`Moxfield API error: \${response.status}\`);
+                if (!response.ok) throw new Error(`Moxfield API error: ${response.status}`);
                 
                 const data = await response.json();
                 deckName = data.name;
 
                 if (data.mainboard) {
                     Object.entries(data.mainboard).forEach(([cardName, details]) => {
-                        deckListText += \`\${details.quantity} \${cardName}\\n\`;
+                        deckListText += `${details.quantity} ${cardName}\n`;
                     });
                 }
                 if (data.commanders) {
                     Object.entries(data.commanders).forEach(([cardName, details]) => {
-                         deckListText += \`\${details.quantity} \${cardName}\\n\`;
+                         deckListText += `${details.quantity} ${cardName}\n`;
                     });
                 }
             }
             // Archidekt Handler
             else if (deckUrl.includes("archidekt.com")) {
-                const match = deckUrl.match(/archidekt\\.com\\/decks\\/(\\d+)/);
+                const match = deckUrl.match(/archidekt\.com\/decks\/(\d+)/);
                 if (!match) throw new Error("Invalid Archidekt URL format");
                 
                 const deckId = match[1];
-                const apiUrl = \`https://archidekt.com/api/decks/\${deckId}/\`;
+                const apiUrl = `https://archidekt.com/api/decks/${deckId}/`;
                 
                 const response = await fetch(apiUrl, {
                     headers: {
@@ -122,7 +77,7 @@ export default {
                         'Accept': 'application/json'
                     }
                 });
-                if (!response.ok) throw new Error(\`Archidekt API error: \${response.status}\`);
+                if (!response.ok) throw new Error(`Archidekt API error: ${response.status}`);
                 
                 const data = await response.json();
                 deckName = data.name;
@@ -131,7 +86,7 @@ export default {
                     data.cards.forEach(cardEntry => {
                         const category = cardEntry.categories?.[0] || "";
                         if (!["Sideboard", "Maybeboard"].includes(category)) {
-                             deckListText += \`\${cardEntry.quantity} \${cardEntry.card.oracleCard.name}\\n\`;
+                             deckListText += `${cardEntry.quantity} ${cardEntry.card.oracleCard.name}\n`;
                         }
                     });
                 }
@@ -166,10 +121,3 @@ export default {
     return env.ASSETS.fetch(request);
   }
 };
-`;
-
-fs.writeFileSync(path.join(distDir, '_worker.js'), workerContent);
-console.log('  ✓ _worker.js created (Advanced Mode enabled)');
-
-console.log('\n✓ Build complete! You can now drag the "upload_me" folder to Cloudflare.');
-
