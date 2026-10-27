@@ -3,7 +3,6 @@ export async function onRequest(context) {
     
     // CORS headers
     const corsHeaders = {
-        'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
         'Content-Type': 'application/json'
